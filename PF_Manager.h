@@ -62,7 +62,7 @@ typedef struct{
 }PF_PageHandle;
 
 const RC CreateFile(const char *fileName);
-const RC OpenFile(char *fileName,PF_FileHandle *fileHandle);
+const RC openFile(char *fileName,PF_FileHandle *fileHandle);
 const RC CloseFile(PF_FileHandle *fileHandle);
 
 const RC GetThisPage(PF_FileHandle *fileHandle,PageNum pageNum,PF_PageHandle *pageHandle);

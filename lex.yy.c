@@ -1794,6 +1794,3 @@ int main()
 #endif
 #line 67 "lex_sql.l"
 
-
-
-

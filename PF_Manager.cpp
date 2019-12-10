@@ -49,7 +49,7 @@ PF_FileHandle * getPF_FileHandle(void )
 	return p;
 }                      
 
-const RC OpenFile(char *fileName,PF_FileHandle *fileHandle)
+const RC openFile(char *fileName,PF_FileHandle *fileHandle)
 {
 	int fd;
 	PF_FileHandle *pfilehandle=fileHandle;
