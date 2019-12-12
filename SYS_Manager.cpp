@@ -138,6 +138,7 @@ RC OpenDB(char *dbname){
 	return SUCCESS;
 }
 
+<<<<<<< HEAD
 RC CloseDB(){
 	return SUCCESS;
 }
@@ -167,6 +168,9 @@ RC Delete(char *relName, int nConditions, Condition *conditions) {
 }
 
 RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions) {
+
+
+RC CloseDB(){
 	return SUCCESS;
 }
 
