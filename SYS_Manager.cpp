@@ -4,43 +4,10 @@
 #include "QU_Manager.h"
 #include <iostream>
 
+char cur_db_pathname[233];
+
 void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
-	if(s_sql.find("select") == 0){
-		SelResult res;
-		Init_Result(&res);
-		//rc = Query(sql,&res);
-		//将查询结果处理一下，整理成下面这种形式
-		//调用editArea->ShowSelResult(col_num,row_num,fields,rows);
-		int col_num = 5;
-		int row_num = 3;
-		char ** fields = new char *[5];
-		for(int i = 0;i<col_num;i++){
-			fields[i] = new char[20];
-			memset(fields[i],0,20);
-			fields[i][0] = 'f';
-			fields[i][1] = i+'0';
-		}
-		char *** rows = new char**[row_num];
-		for(int i = 0;i<row_num;i++){
-			rows[i] = new char*[col_num];
-			for(int j = 0;j<col_num;j++){
-				rows[i][j] = new char[20];
-				memset(rows[i][j],0,20);
-				rows[i][j][0] = 'r';
-				rows[i][j][1] = i + '0';
-				rows[i][j][2] = '+';
-				rows[i][j][3] = j + '0';
-			}
-		}
-		editArea->ShowSelResult(col_num,row_num,fields,rows);
-		for(int i = 0;i<5;i++){
-			delete[] fields[i];
-		}
-		delete[] fields;
-		Destory_Result(&res);
-		return;
-	}
 	RC rc = execute(sql);
 	int row_num = 0;
 	char**messages;
@@ -80,13 +47,13 @@ RC execute(char * sql){
 		int i = 0;
 		switch (sql_str->flag)
 		{
-			//case 1:
-			////判断SQL语句为select语句
-
-			//break;
+			case 1:
+			//判断SQL语句为select语句
+			break;
 
 			case 2:
 			//判断SQL语句为insert语句
+			break;
 
 			case 3:	
 			//判断SQL语句为update语句
@@ -126,20 +93,76 @@ RC execute(char * sql){
 	}
 }
 
-RC CreateDB(char *dbpath,char *dbname){
+// 12/12
+//- DataBase
+// | - SysTable
+// | - SysColumn
+
+// 12/12
+// --- INTERFACE ---
+// Require RM_CreateFile() to create a file in a SPECIFIC PATH!
+RC CreateDB(char *dbpath,char *dbname)
+{
+	char path_database_name[233];  
+	strcpy(path_database_name, dbpath);
+	strcat(path_database_name, "\\");
+	strcat(path_database_name, dbname);
+
+	char path_systable_name[233];
+	char path_syscolmn_name[233];
+
+	bool flag = CreateDirectory(path_database_name, NULL);
+	if (!flag) {
+		printf("create directory failed!\n");
+		return SQL_SYNTAX; // failed
+	}
+
+	strcpy(path_systable_name, path_database_name);
+	strcat(path_systable_name, "\\SYSTABLES");
+
+	strcpy(path_syscolmn_name, path_database_name);
+	strcat(path_syscolmn_name, "\\SYSCOLUMNS");
+
+	// --- DIFFERENCE & Q ---
+	// What dose a record contain? (by tyf ... + sizeof(bool) + sizeof(RID)
+	// --- A ---
+	// yzy will add the length if she needs it :)
+
+	RM_CreateFile(path_systable_name, SYS_TABLE_ROW_SIZE);
+	RM_CreateFile(path_syscolmn_name, SYS_COLMN_ROW_SIZE);
+
 	return SUCCESS;
 }
 
-RC DropDB(char *dbname){
+// 12/12
+// DIFFERENCE
+// different directory structure, different way to delete
+RC DropDB(char *dbname)
+{
+	char delete_db[233] = "rmdir /s/q ";
+
+	strcat(delete_db, dbname);
+
+	system(delete_db);
+
 	return SUCCESS;
 }
 
-RC OpenDB(char *dbname){
+// 12/12
+// --- DIFFERENCE ---
+// file handle?
+RC OpenDB(char *dbname)
+{
+	strcpy(cur_db_pathname, dbname);
 	return SUCCESS;
 }
 
-<<<<<<< HEAD
-RC CloseDB(){
+// 12/12
+// --- DIFFERENCE ---
+// file handle?
+RC CloseDB()
+{
+	memset(cur_db_pathname, 0, 233);
 	return SUCCESS;
 }
 
@@ -168,9 +191,6 @@ RC Delete(char *relName, int nConditions, Condition *conditions) {
 }
 
 RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions) {
-
-
-RC CloseDB(){
 	return SUCCESS;
 }
 
