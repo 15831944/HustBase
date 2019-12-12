@@ -6,6 +6,9 @@
 #include "RM_Manager.h"
 #include "str.h"
 
+#define SYS_TABLE_ROW_SIZE (21 + 4)
+#define SYS_COLMN_ROW_SIZE (21 + 21 + 4 + 4 + 4 + 1 + 21)
+
 void ExecuteAndMessage(char * ,CEditArea*);
 bool CanButtonClick();
 
