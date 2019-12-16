@@ -5,6 +5,7 @@
 #include "PF_Manager.h"
 #include "RM_Manager.h"
 #include "SYS_Manager.h"
+#include "RC.h"
 #include "str.h"
 
 typedef struct SelResult {

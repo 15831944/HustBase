@@ -4,6 +4,7 @@
 #include "RM_Manager.h"
 #include "PF_Manager.h"
 
+
 typedef struct {
 	int attrLength;
 	int keyLength;

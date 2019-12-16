@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "QU_Manager.h"
-
+#include "RC.h"
 void Init_Result(SelResult* res) {
 	res->next_res = NULL;
 }
@@ -846,7 +846,7 @@ RC checkTable(int nRelations, char** relations)
 
 		rc = GetNextRec(sysTablesScan, &rec);   //如果表不存在，则返回RM_EOF
 		if (rc != SUCCESS) {
-			rc = TABLE_NOTEXITST;
+			rc = TABLE_NOT_EXIST;
 			break;
 		}
 		CloseScan(sysTablesScan);
