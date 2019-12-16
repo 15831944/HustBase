@@ -164,6 +164,34 @@ void CHustBaseApp::OnAppAbout()
 void CHustBaseApp::OnCreateDB()
 {
 	//关联创建数据库按钮，此处应提示用户输入数据库的存储路径和名称，并调用CreateDB函数创建数据库。
+
+	//详情：弹出文件框
+	BROWSEINFO bi;
+	LPITEMIDLIST lpDlist = NULL;
+	char szPath[MAX_PATH];
+	char *dbPath, *dbName;
+	CString str;
+	RC rc;
+
+	SHGetSpecialFolderLocation(NULL, CSIDL_DESKTOP, &lpDlist);
+	if (lpDlist == NULL) return;
+
+	ZeroMemory(&bi, sizeof(BROWSEINFO));//不存在这句就会出错
+	bi.hwndOwner = GetForegroundWindow();//父窗口	
+	bi.pidlRoot = lpDlist;
+	bi.lpszTitle = "Save as ..."; bi.pszDisplayName = szPath;
+	bi.ulFlags = 0x0040;//通过对话框的“新建文件夹“输入文件夹名称
+
+	lpDlist = SHBrowseForFolder(&bi);
+	if (lpDlist != NULL)
+	{
+		SHGetPathFromIDList(lpDlist, str.GetBuffer(MAX_PATH * 2));//把文件夹路径取出来
+		str.ReleaseBuffer();
+
+		dbPath = str.GetBuffer(0); dbName = szPath;
+		rc = CreateDB(dbPath, dbName);
+		if (rc != SUCCESS)return;
+	}
 }
 
 void CHustBaseApp::OnOpenDB() 

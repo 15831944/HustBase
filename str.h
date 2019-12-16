@@ -147,6 +147,7 @@ typedef enum{
 	SQL_SYNTAX
 }RC;
 #endif
+
 #ifdef __cplusplus
 extern "C"{
 	sqlstr * get_sqlstr();
