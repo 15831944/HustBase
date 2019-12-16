@@ -17,6 +17,7 @@ typedef struct{
 	bool bOpen;
 	PF_FileHandle fileHandle;
 	IX_FileHeader fileHeader;
+	PF_PageHandle* headerPage;
 }IX_IndexHandle;
 
 typedef struct{
@@ -26,6 +27,8 @@ typedef struct{
 	PageNum brother;
 	char *keys;
 	RID *rids;
+	int keys_offset;    
+	int rids_offset;    
 }IX_Node;
 
 typedef struct{
@@ -35,6 +38,7 @@ typedef struct{
 	char *value;		 /* 与属性行比较的值 */
     PF_PageHandle pfPageHandles[PF_BUFFER_SIZE]; // 固定在缓冲区页面所对应的页面操作列表
 	PageNum pnNext; 	//下一个将要被读入的页面号
+	int ridIx;
 }IX_IndexScan;
 
 typedef struct Tree_Node{
