@@ -20,13 +20,13 @@ typedef struct {
 	IX_FileHeader fileHeader;
 }IX_IndexHandle;
 
+
 typedef struct {
 	int is_leaf;
 	int keynum;
 	PageNum parent;
 	PageNum brother;
-	char* keys;
-	RID* rids;
+	struct
 }IX_Node;
 
 typedef struct {

@@ -95,6 +95,48 @@ RC CloseIndex(IX_IndexHandle* indexHandle)
 	return SUCCESS;
 }
 
+RC InsertEntry(IX_IndexHandle* indexHandle, void* pData, RID* rid) {
+	PF_FileHandle fileHandle = indexHandle->fileHandle;
+	IX_FileHeader fileHeader = indexHandle->fileHeader;
+	PF_PageHandle* pageHandle = NULL;
+
+	//索引文件页面的序数
+	int order = fileHeader.order;
+
+	//索引关键字的长度
+	int attrLength = fileHeader.attrLength;
+
+	//获取根节点页面
+	pageHandle = (PF_PageHandle*)malloc(sizeof(PF_PageHandle));
+	pageHandle->bOpen = false;
+	GetThisPage(&fileHandle, fileHeader.rootPage, pageHandle);
+
+	//获取根节点页面的数据区
+	char* pageData;
+	GetData(pageHandle, &pageData);
+
+	//获取根节点页面得节点控制信息
+	IX_Node* index_NodeControlInfo = (IX_Node*)(pageData + sizeof(IX_FileHeader));
+
+	while (!index_NodeControlInfo->is_leaf) {			//不是叶子结点则找到叶子节点
+		
+
+
+	}
+
+
+}
+
+
+void findLeafByPage(PF_PageHandle* pageHandle, int order, AttrType atteType, int attrLength, char* pData, RID & tmpRid) {
+
+
+}
+
+
+
+
+
 //索引的插入
 RC InsertEntry(IX_IndexHandle* indexHandle, void* pData, RID* rid)
 {
@@ -128,6 +170,7 @@ RC InsertEntry(IX_IndexHandle* indexHandle, void* pData, RID* rid)
 		GetThisPage(&fileHandle, tempRid.pageNum, pageHandle);
 		GetData(pageHandle, &pageData);
 		index_NodeControlInfo = (IX_Node*)(pageData + sizeof(IX_FileHeader));
+		UnpinPage(pageHandle);
 	}
 
 	insertKeyAndRidToPage(pageHandle, order, fileHeader.attrType, fileHeader.attrLength, pData, rid, true);    //向页面插入关键字	
@@ -371,7 +414,7 @@ RC DeleteEntry(IX_IndexHandle* indexHandle, void* pData, RID* rid)
 			}
 
 		}
-		return FAIL;
+		return SUCCESS;
 	}
 	else
 		return FAIL;
