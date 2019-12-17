@@ -326,6 +326,10 @@ RC RM_CheckWhetherRecordsExists(RM_FileHandle *fileHandle, RID rid, char ** data
 
 RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *conditions)//初始化扫描
 {
+	if (fileHandle == NULL) {
+		AfxMessageBox("未指定数据库");
+		return RM_EOF;
+	}
 	rmFileScan->bOpen = true;
 	rmFileScan->pRMFileHandle = fileHandle;
 	rmFileScan->conNum = conNum;
