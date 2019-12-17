@@ -169,33 +169,28 @@ void CHustBaseApp::OnCreateDB()
 	//AfxMessageBox("测试：创建数据库");
 
 	BROWSEINFO bi;
-	char szPath[MAX_PATH];
+	LPITEMIDLIST lpDlist;
+	char selectedPath[MAX_PATH];
+	char path[MAX_PATH];
+
+	SHGetSpecialFolderLocation(NULL, CSIDL_DESKTOP, &lpDlist);
+	if (lpDlist == NULL) return;
 
 	ZeroMemory(&bi, sizeof(BROWSEINFO));
 	bi.hwndOwner = GetForegroundWindow();		// 父窗口	
-	bi.pidlRoot = NULL;							// 默认使用桌面目录
+	bi.pidlRoot = lpDlist;						// 使用桌面目录
 	bi.lpszTitle = "创建数据库";					// 标题
-	bi.pszDisplayName = szPath;					// 保存用户选中的目录字符串的内存地址
+	bi.pszDisplayName = selectedPath;			// 保存用户选中的目录字符串的内存地址
 	bi.ulFlags = 0x0040;						// 增添新建文件夹按钮
-	
-	char *dbpath, *dbname;
-	CString str;
 
 	LPCITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	if (pidl != NULL) {
+		SHGetPathFromIDList(pidl, path);
 
-	if (pidl == NULL) {
-		AfxMessageBox("创建数据库失败！");
-		return;
-	} else {
-		SHGetPathFromIDList(pidl, str.GetBuffer(MAX_PATH * 2));
-		str.ReleaseBuffer();
-		dbpath = str.GetBuffer(0);
-		dbname = szPath;
+		//AfxMessageBox(path);
+		//AfxMessageBox(selectedPath);
 
-		//AfxMessageBox(dbpath);
-		//AfxMessageBox(dbname);
-
-		RC rc = CreateDB(dbpath, dbname);
+		RC rc = CreateDB(path, selectedPath);
 		if (rc != SUCCESS) {
 			AfxMessageBox("创建数据库失败！");
 			return;
@@ -208,68 +203,85 @@ void CHustBaseApp::OnCreateDB()
 // 并在界面左侧的控件中显示数据库中的表、列信息。
 void CHustBaseApp::OnOpenDB() 
 {
-	AfxMessageBox("测试：打开数据库");
+	//AfxMessageBox("测试：打开数据库");
 
 	BROWSEINFO bi;
+	LPITEMIDLIST lpDlist;
 	char path[MAX_PATH];
-
-	ZeroMemory(&bi, sizeof(bi));
-	bi.pidlRoot = NULL;
-	LPCITEMIDLIST pidl = SHBrowseForFolder(&bi);
-	if (pidl != NULL) {
-		SHGetPathFromIDList(pidl, path);
-	}
-
-	SetCurrentDirectory(path);
-
-	// 检查数据库，是否有SYSTABLES和SYSCOLUMNS
-	CFileFind fileFind;
-	BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
-	BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");
-	if (!table_Exist || !columns_Exist) {
-		AfxMessageBox("数据库格式错误！不存在系统表！");
-		return;
-	}
-
-	CHustBaseApp::pathvalue = true;
-	CHustBaseDoc *pDoc;
-	pDoc = CHustBaseDoc::GetDoc();
-	pDoc->m_pTreeView->PopulateTree();
-
-	RC rc = OpenDB(path);
-	if (rc != SUCCESS) {
-		return;
-	}
-}
-
-void CHustBaseApp::OnDropDb() 
-{
-	//关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
-	AfxMessageBox("测试：删除数据库");
-
-	//详情：删除指定数据库所在文件夹中的所有数据库文件 即直接删除该数据库文件夹
-	BROWSEINFO bi;
-	LPITEMIDLIST lpDlist = NULL;
-	char szPath[MAX_PATH];
-	char *dbName;
-	RC rc;
 
 	SHGetSpecialFolderLocation(NULL, CSIDL_DESKTOP, &lpDlist);
 	if (lpDlist == NULL) return;
 
-	ZeroMemory(&bi, sizeof(BROWSEINFO));//不存在这句就会出错
-	bi.hwndOwner = GetForegroundWindow();//父窗口	
-	bi.pidlRoot = lpDlist;
-	bi.lpszTitle = "Delete Database";
-	bi.pszDisplayName = szPath;
+	ZeroMemory(&bi, sizeof(bi));
+	bi.pidlRoot = lpDlist;						// 使用桌面目录
+	bi.lpszTitle = "打开数据库";					// 标题
 
-	lpDlist = SHBrowseForFolder(&bi);
-	if (lpDlist != NULL)
-	{
-		SHGetPathFromIDList(lpDlist, szPath);//把文件夹路径取出来
+	LPCITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	if (pidl != NULL) {
+		SHGetPathFromIDList(pidl, path);
 
-		CHustBaseApp::pathvalue = false; dbName = szPath;
-		rc = DropDB(dbName);
-		if (rc != SUCCESS)return;
+		// 检查数据库，是否有SYSTABLES和SYSCOLUMNS
+		SetCurrentDirectory(path);
+		CFileFind fileFind;
+		BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
+		BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");
+		if (!table_Exist || !columns_Exist) {
+			AfxMessageBox("数据库格式错误！不存在系统表！");
+			return;
+		}
+
+		RC rc = OpenDB(path);
+		if (rc != SUCCESS) {
+			AfxMessageBox("打开数据库失败！");
+			return;
+		}
+
+		// 显示数据库结构
+		//CHustBaseApp::pathvalue = true;
+		CHustBaseDoc *pDoc;
+		pDoc = CHustBaseDoc::GetDoc();
+		pDoc->m_pTreeView->PopulateTree();
+	}
+}
+
+// 12/17
+// 关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
+void CHustBaseApp::OnDropDb() 
+{
+	// AfxMessageBox("测试：删除数据库");
+
+	BROWSEINFO bi;
+	LPITEMIDLIST lpDlist = NULL;
+	char path[MAX_PATH];
+
+	SHGetSpecialFolderLocation(NULL, CSIDL_DESKTOP, &lpDlist);
+	if (lpDlist == NULL) return;
+
+	ZeroMemory(&bi, sizeof(BROWSEINFO));
+	bi.hwndOwner = GetForegroundWindow();		// 父窗口	
+	bi.pidlRoot = lpDlist;						// 使用桌面目录
+	bi.lpszTitle = "删除数据库";					// 标题
+	bi.pszDisplayName = NULL;
+
+	LPCITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	if (pidl != NULL) {
+		SHGetPathFromIDList(pidl, path);
+
+		// 检查数据库，是否有SYSTABLES和SYSCOLUMNS
+		SetCurrentDirectory(path);
+		CFileFind fileFind;
+		BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
+		BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");
+		if (!table_Exist || !columns_Exist) {
+			AfxMessageBox("该文件不是数据库文件！删除数据库失败！");
+			return;
+		}
+
+		//CHustBaseApp::pathvalue = false;
+		RC rc = DropDB(path);
+		if (rc != SUCCESS) {
+			AfxMessageBox("删除数据库失败！");
+			return;
+		}
 	}
 }
