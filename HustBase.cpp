@@ -203,19 +203,12 @@ void CHustBaseApp::OnCreateDB()
 	}
 }
 
+// 12/17
+// 关联打开数据库按钮，此处应提示用户输入数据库所在位置，并调用OpenDB函数改变当前数据库路径，
+// 并在界面左侧的控件中显示数据库中的表、列信息。
 void CHustBaseApp::OnOpenDB() 
 {
-	//关联打开数据库按钮，此处应提示用户输入数据库所在位置，并调用OpenDB函数改变当前数据库路径，并在界面左侧的控件中显示数据库中的表、列信息。
 	AfxMessageBox("测试：打开数据库");
-
-	/*
-	详情：把当前路径定位到要打开的数据库所在的文件夹（SetCurrentDirectory），然后读取该文件夹中SYSTABLES和SYSCOLUMNS文件的内容，
-	在界面左侧显示当前数据库的结构。显示功能通过调用PopulateTree()函数来实现，具体语句为：
-						CHustBaseDoc *pDoc;
-					pDoc = CHustBaseDoc::GetDoc();
-					CHustBaseApp::pathvalue = true;
-						pDoc->m_pTreeView->PopulateTree();
-	*/
 
 	BROWSEINFO bi;
 	char path[MAX_PATH];
@@ -229,7 +222,7 @@ void CHustBaseApp::OnOpenDB()
 
 	SetCurrentDirectory(path);
 
-	// 检查数据库格式，是否有SYSTABLES和SYSCOLUMNS
+	// 检查数据库，是否有SYSTABLES和SYSCOLUMNS
 	CFileFind fileFind;
 	BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
 	BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");

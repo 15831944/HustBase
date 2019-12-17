@@ -219,9 +219,9 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 	rc=RM_OpenFile((LPSTR)(LPCTSTR)column,&colfilehandle);//去SYSCOLUMNS表中获取列名
 	if(rc!=SUCCESS)
 		AfxMessageBox("打开系统列文件失败");
-	/*rc=OpenScan(&FileScan1,&fileHandle,0,NULL);
+	rc=OpenScan(&FileScan1,&fileHandle,0,NULL);
 	if(rc!=SUCCESS)
-		AfxMessageBox("初始化表文件扫描失败");*/
+		AfxMessageBox("初始化表文件扫描失败");
 	while(GetNextRec(&FileScan1,&rec1)==SUCCESS)
 	{
 		strcpy(tabname[i],rec1.pData);

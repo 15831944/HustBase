@@ -57,9 +57,9 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 		//int i = 0;
 		switch (sql_str->flag)
 		{
-			//case 1:
-			////ÅÐ¶ÏSQLÓï¾äÎªselectÓï¾ä
-			//break;
+		case 1:
+			//ÅÐ¶ÏSQLÓï¾äÎªselectÓï¾ä
+			break;
 		case 2:
 			//ÅÐ¶ÏSQLÓï¾äÎªinsertÓï¾ä
 			Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
@@ -106,7 +106,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 
 		case 9:
 			//ÅÐ¶ÏÎªhelpÓï¾ä£¬¿ÉÒÔ¸ø³ö°ïÖúÌáÊ¾
-			AfxMessageBox("Çë×ÔÐÐÃþË÷£¡");
 			break;
 
 		case 10:
@@ -181,6 +180,9 @@ RC OpenDB(char *dbname)
 	sys_table_handle = new RM_FileHandle;
 	sys_colmn_handle = new RM_FileHandle;
 	strcpy(cur_db_pathname, dbname);
+
+	printf("database opened!\n");
+
 	return SUCCESS;
 }
 
@@ -215,11 +217,13 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	table_con.compOp = EQual;
 	table_con.Rvalue = relName;
 
+	printf("table name: %s\n", relName);
+
 	RM_FileScan table_scan;
 	OpenScan(&table_scan, sys_table_handle, 1, &table_con);
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
-	if (rc != SUCCESS) {
+	if (rc == SUCCESS) {
 		printf("The table already exists!\n");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
