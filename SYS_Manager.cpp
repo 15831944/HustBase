@@ -67,9 +67,11 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 			break;
 		case 3:
 			//ÅĞ¶ÏSQLÓï¾äÎªupdateÓï¾ä
+		{
 			updates up = sql_str->sstr.upd;
 			Update(up.relName, up.attrName, &up.value, up.nConditions, up.conditions);
 			break;
+		}
 
 		case 4:
 			//ÅĞ¶ÏSQLÓï¾äÎªdeleteÓï¾ä
