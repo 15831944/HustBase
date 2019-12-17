@@ -26,7 +26,6 @@ typedef struct {
 	int keynum;
 	PageNum parent;
 	PageNum brother;
-	struct
 }IX_Node;
 
 typedef struct {
