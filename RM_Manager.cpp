@@ -359,7 +359,7 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 	} // check whether need new page
 
 	rmFileScan->pn = firstRecordOffset;
-	rmFileScan->sn = -1;
+	rmFileScan->sn = 0;
 	return SUCCESS;
 }
 
@@ -380,6 +380,7 @@ RC CloseScan(RM_FileScan *rmFileScan)//¹Ø±ÕÉ¨Ãè
 
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 {
+
 	if (!rmFileScan->bOpen) {
 		printf("GetNextRec ,É¨ÃèÎ´´ò¿ª\n");
 		return RM_FSCLOSED;
@@ -438,7 +439,6 @@ RC GetRec (RM_FileHandle *fileHandle,RID *rid, RM_Record *rec)
 	// load data
 
 	delete pf_fileHandle;
-	return SUCCESS;
 	return SUCCESS;
 }
 
