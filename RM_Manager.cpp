@@ -326,10 +326,6 @@ RC RM_CheckWhetherRecordsExists(RM_FileHandle *fileHandle, RID rid, char ** data
 
 RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *conditions)//初始化扫描
 {
-	if (fileHandle->rm_fileSubHeader->nRecords == 0) {//记录数为0
-		printf("OpenScan, fileHandle=%p,nRecords=0", fileHandle);
-		return RM_EOF;
-	}
 	rmFileScan->bOpen = true;
 	rmFileScan->pRMFileHandle = fileHandle;
 	rmFileScan->conNum = conNum;
@@ -382,6 +378,9 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 	if (!rmFileScan->bOpen) {
 		printf("GetNextRec ,扫描未打开");
 		return RM_FSCLOSED;
+	}
+	if (rmFileScan->pRMFileHandle->rm_fileSubHeader->nRecords == 0) {//记录数为0
+		return RM_EOF;
 	}
 	auto rm_fileHandle = rmFileScan->pRMFileHandle;
 	int recordSize = rm_fileHandle->rm_fileSubHeader->recordSize;
@@ -633,7 +632,7 @@ RC RM_CreateFile (char *fileName, int recordSize)
 	RM_FileSubHeader rm_fileSubHeader;
 	rm_fileSubHeader.nRecords = 0;
 	rm_fileSubHeader.recordSize = recordSize + sizeof(RID) + sizeof(bool);
-	rm_fileSubHeader.recordsPerPage = PF_PAGE_SIZE / (rm_fileSubHeader.recordSize + 1);
+	rm_fileSubHeader.recordsPerPage = (PF_PAGE_SIZE - sizeof(int)) / (rm_fileSubHeader.recordSize + 1);
 	
 	auto pf_pageHandle = new PF_PageHandle();
 	AllocatePage(pf_fileHandle, pf_pageHandle);//在指定文件中分配一个新的页面，并将其放入缓冲区，返回页面句柄指针
