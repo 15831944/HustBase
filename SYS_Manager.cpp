@@ -4,6 +4,8 @@
 #include "QU_Manager.h"
 #include <iostream>
 
+#include "HustBaseDoc.h"
+
 char cur_db_pathname[233];
 
 // 12/13
@@ -11,88 +13,111 @@ char cur_db_pathname[233];
 RM_FileHandle *sys_table_handle;
 RM_FileHandle *sys_colmn_handle;
 
-void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。此函数需修改
+void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
+{//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
-	RC rc = execute(sql);
+
+	RC rc = execute(sql, pDoc);
 	int row_num = 0;
-	char**messages;
-	switch(rc){
+	char **messages;
+	switch (rc) {
 	case SUCCESS:
 		row_num = 1;
 		messages = new char*[row_num];
-		messages[0] = "操作成功";
-		editArea->ShowMessage(row_num,messages);
+		messages[0] = "Successful Execution!";
+		editArea->ShowMessage(row_num, messages);
 		delete[] messages;
 		break;
 	case SQL_SYNTAX:
 		row_num = 1;
 		messages = new char*[row_num];
-		messages[0] = "有语法错误";
-		editArea->ShowMessage(row_num,messages);
+		messages[0] = "Syntax Error!";
+		editArea->ShowMessage(row_num, messages);
 		delete[] messages;
 		break;
 	default:
 		row_num = 1;
 		messages = new char*[row_num];
-		messages[0] = "功能未实现";
-		editArea->ShowMessage(row_num,messages);
-	delete[] messages;
+		messages[0] = "Function Not Implemented!";
+		editArea->ShowMessage(row_num, messages);
+		delete[] messages;
 		break;
 	}
+
 }
 
-RC execute(char * sql){
+RC execute(char * sql, CHustBaseDoc* pDoc) {
 	sqlstr *sql_str = NULL;
 	RC rc;
 	sql_str = get_sqlstr();
-  	rc = parse(sql, sql_str);//只有两种返回结果SUCCESS和SQL_SYNTAX
-	
+	rc = parse(sql, sql_str);//只有两种返回结果SUCCESS和SQL_SYNTAX
+
 	if (rc == SUCCESS)
 	{
-		int i = 0;
+		//int i = 0;
 		switch (sql_str->flag)
 		{
-			case 1:
-			//判断SQL语句为select语句
-			break;
-
-			case 2:
+			//case 1:
+			////判断SQL语句为select语句
+			//break;
+		case 2:
 			//判断SQL语句为insert语句
+			Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
+			pDoc->m_pTreeView->PopulateTree();
 			break;
-
-			case 3:	
+		case 3:
 			//判断SQL语句为update语句
+			updates up = sql_str->sstr.upd;
+			Update(up.relName, up.attrName, &up.value, up.nConditions, up.conditions);
 			break;
 
-			case 4:					
+		case 4:
 			//判断SQL语句为delete语句
+			Delete(sql_str->sstr.del.relName, sql_str->sstr.del.nConditions, sql_str->sstr.del.conditions);
 			break;
 
-			case 5:
+		case 5:
 			//判断SQL语句为createTable语句
+			CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
+			pDoc->m_pTreeView->PopulateTree(); //更新视图
+			//pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
+
 			break;
 
-			case 6:	
+		case 6:
 			//判断SQL语句为dropTable语句
+			DropTable(sql_str->sstr.cret.relName);
+			pDoc->m_pTreeView->PopulateTree(); //更新视图
+			//pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
+
 			break;
 
-			case 7:
+		case 7:
 			//判断SQL语句为createIndex语句
+			CreateIndex(sql_str->sstr.crei.indexName, sql_str->sstr.crei.relName, sql_str->sstr.crei.attrName);
 			break;
-	
-			case 8:	
+
+		case 8:
 			//判断SQL语句为dropIndex语句
+			DropIndex(sql_str->sstr.crei.indexName);
 			break;
-			
-			case 9:
+
+		case 9:
 			//判断为help语句，可以给出帮助提示
+			AfxMessageBox("请自行摸索！");
 			break;
-		
-			case 10: 
+
+		case 10:
 			//判断为exit语句，可以由此进行退出操作
-			break;		
+			AfxMessageBox("Welcome to use again！");
+			AfxGetMainWnd()->SendMessage(WM_CLOSE);//关闭窗口
+			//DestroyWindow();
+			break;
 		}
-	}else{
+
+		return SUCCESS;
+	}
+	else {
 		AfxMessageBox(sql_str->sstr.errors);//弹出警告框，sql语句词法解析错误信息
 		return rc;
 	}
@@ -103,24 +128,26 @@ RC execute(char * sql){
 // | - SysTable
 // | - SysColumn
 
-// 12/12
-// --- INTERFACE ---
-// Require RM_CreateFile() to create a file in a SPECIFIC PATH!
+// void CHustBaseApp::OnCreateDB() in HustBase.cpp already created a directory!
 RC CreateDB(char *dbpath,char *dbname)
 {
+	printf("CreateDB called!\n");
+
 	char path_database_name[233];  
 	strcpy(path_database_name, dbpath);
-	strcat(path_database_name, "\\");
-	strcat(path_database_name, dbname);
+	// --- NOTICE ---
+	// void CHustBaseApp::OnCreateDB() in HustBase.cpp will get the full path
+	//strcat(path_database_name, "\\");
+	//strcat(path_database_name, dbname);
 
 	char path_systable_name[233];
 	char path_syscolmn_name[233];
 
-	bool flag = CreateDirectory(path_database_name, NULL);
-	if (!flag) {
-		printf("create database directory failed!\n");
-		return SQL_SYNTAX; // failed
-	}
+	//bool flag = CreateDirectory(path_database_name, NULL);
+	//if (!flag) {
+	//	printf("create database directory failed!\n");
+	//	return SQL_SYNTAX; // failed
+	//}
 
 	strcpy(path_systable_name, path_database_name);
 	strcat(path_systable_name, "\\SYSTABLES");
@@ -128,14 +155,10 @@ RC CreateDB(char *dbpath,char *dbname)
 	strcpy(path_syscolmn_name, path_database_name);
 	strcat(path_syscolmn_name, "\\SYSCOLUMNS");
 
-	// --- DIFFERENCE & Q ---
-	// What dose a record contain? 
-	// --- A ---
-	// yzy will add the length if she needs it :)
-
 	RM_CreateFile(path_systable_name, SYS_TABLE_ROW_SIZE);
 	RM_CreateFile(path_syscolmn_name, SYS_COLMN_ROW_SIZE);
 
+	printf("CreateDB successed!\n");
 	return SUCCESS;
 }
 

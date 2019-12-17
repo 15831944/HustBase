@@ -666,7 +666,6 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 	fileHandle->rm_fileSubHeader = (RM_FileSubHeader *)pData;
 	fileHandle->pf_fileHandle = pf_fileHandle;
 	fileHandle->rBitmap = pData + sizeof(RM_FileSubHeader);
-	delete pf_fileHandle;
 	delete pf_pageHandle;
 	return SUCCESS;
 }

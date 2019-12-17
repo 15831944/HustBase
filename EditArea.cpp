@@ -129,7 +129,7 @@ void CEditArea::OnRunBtn()
 
 	
 	pDoc->isEdit = false;
-	ExecuteAndMessage(str,this);//可以对此函数进行修改来设置页面展示的信息
+	ExecuteAndMessage(str, this, pDoc);//可以对此函数进行修改来设置页面展示的信息
 	
 }
 
@@ -150,7 +150,6 @@ void CEditArea::OnUpdateRun(CCmdUI* pCmdUI)
 
 	if (0==testText.GetLength())
 	{
-		
 		pCmdUI->Enable(FALSE);
 	}
 	else{
@@ -200,7 +199,7 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 	CString t;//test
 
 	int i=0,j=0;
-	DWORD cchCurDir; 
+	DWORD cchCurDir = MAX_PATH; 
 	LPTSTR lpszCurDir; 	
 	TCHAR tchBuffer[BUFFER]; 
 	lpszCurDir = tchBuffer; 
@@ -208,8 +207,11 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 	
 	CString	Path=lpszCurDir;
 
-	CString table=Path+"\\SYSTABLES.xx";
-	CString column=Path+"\\SYSCOLUMNS.xx";
+	//CString table=Path+"\\SYSTABLES.xx";
+	//CString column=Path+"\\SYSCOLUMNS.xx";
+
+	CString table=Path+"\\SYSTABLES";
+	CString column=Path+"\\SYSCOLUMNS";
 
 	rc=RM_OpenFile((LPSTR)(LPCTSTR)table,&fileHandle);//去SYSTABLES表中获取表名
 	if(rc!=SUCCESS)
@@ -217,9 +219,9 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 	rc=RM_OpenFile((LPSTR)(LPCTSTR)column,&colfilehandle);//去SYSCOLUMNS表中获取列名
 	if(rc!=SUCCESS)
 		AfxMessageBox("打开系统列文件失败");
-	rc=OpenScan(&FileScan1,&fileHandle,0,NULL);
+	/*rc=OpenScan(&FileScan1,&fileHandle,0,NULL);
 	if(rc!=SUCCESS)
-		AfxMessageBox("初始化表文件扫描失败");
+		AfxMessageBox("初始化表文件扫描失败");*/
 	while(GetNextRec(&FileScan1,&rec1)==SUCCESS)
 	{
 		strcpy(tabname[i],rec1.pData);

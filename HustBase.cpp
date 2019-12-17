@@ -161,16 +161,104 @@ void CHustBaseApp::OnAppAbout()
 /////////////////////////////////////////////////////////////////////////////
 // CHustBaseApp message handlers
 
+// 12/16
+// 关联创建数据库按钮，此处应提示用户输入数据库的存储路径和名称，并调用CreateDB函数创建数据库。
+// 【用路径选择对话框创建新的数据库】
 void CHustBaseApp::OnCreateDB()
 {
-	//关联创建数据库按钮，此处应提示用户输入数据库的存储路径和名称，并调用CreateDB函数创建数据库。
+	//AfxMessageBox("测试：创建数据库");
 
-	//详情：弹出文件框
+	BROWSEINFO bi;
+	char szPath[MAX_PATH];
+
+	ZeroMemory(&bi, sizeof(BROWSEINFO));
+	bi.hwndOwner = GetForegroundWindow();		// 父窗口	
+	bi.pidlRoot = NULL;							// 默认使用桌面目录
+	bi.lpszTitle = "创建数据库";					// 标题
+	bi.pszDisplayName = szPath;					// 保存用户选中的目录字符串的内存地址
+	bi.ulFlags = 0x0040;						// 增添新建文件夹按钮
+	
+	char *dbpath, *dbname;
+	CString str;
+
+	LPCITEMIDLIST pidl = SHBrowseForFolder(&bi);
+
+	if (pidl == NULL) {
+		AfxMessageBox("创建数据库失败！");
+		return;
+	} else {
+		SHGetPathFromIDList(pidl, str.GetBuffer(MAX_PATH * 2));
+		str.ReleaseBuffer();
+		dbpath = str.GetBuffer(0);
+		dbname = szPath;
+
+		//AfxMessageBox(dbpath);
+		//AfxMessageBox(dbname);
+
+		RC rc = CreateDB(dbpath, dbname);
+		if (rc != SUCCESS) {
+			AfxMessageBox("创建数据库失败！");
+			return;
+		}
+	}
+}
+
+void CHustBaseApp::OnOpenDB() 
+{
+	//关联打开数据库按钮，此处应提示用户输入数据库所在位置，并调用OpenDB函数改变当前数据库路径，并在界面左侧的控件中显示数据库中的表、列信息。
+	AfxMessageBox("测试：打开数据库");
+
+	/*
+	详情：把当前路径定位到要打开的数据库所在的文件夹（SetCurrentDirectory），然后读取该文件夹中SYSTABLES和SYSCOLUMNS文件的内容，
+	在界面左侧显示当前数据库的结构。显示功能通过调用PopulateTree()函数来实现，具体语句为：
+						CHustBaseDoc *pDoc;
+					pDoc = CHustBaseDoc::GetDoc();
+					CHustBaseApp::pathvalue = true;
+						pDoc->m_pTreeView->PopulateTree();
+	*/
+
+	BROWSEINFO bi;
+	char path[MAX_PATH];
+
+	ZeroMemory(&bi, sizeof(bi));
+	bi.pidlRoot = NULL;
+	LPCITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	if (pidl != NULL) {
+		SHGetPathFromIDList(pidl, path);
+	}
+
+	SetCurrentDirectory(path);
+
+	// 检查数据库格式，是否有SYSTABLES和SYSCOLUMNS
+	CFileFind fileFind;
+	BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
+	BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");
+	if (!table_Exist || !columns_Exist) {
+		AfxMessageBox("数据库格式错误！不存在系统表！");
+		return;
+	}
+
+	CHustBaseApp::pathvalue = true;
+	CHustBaseDoc *pDoc;
+	pDoc = CHustBaseDoc::GetDoc();
+	pDoc->m_pTreeView->PopulateTree();
+
+	RC rc = OpenDB(path);
+	if (rc != SUCCESS) {
+		return;
+	}
+}
+
+void CHustBaseApp::OnDropDb() 
+{
+	//关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
+	AfxMessageBox("测试：删除数据库");
+
+	//详情：删除指定数据库所在文件夹中的所有数据库文件 即直接删除该数据库文件夹
 	BROWSEINFO bi;
 	LPITEMIDLIST lpDlist = NULL;
 	char szPath[MAX_PATH];
-	char *dbPath, *dbName;
-	CString str;
+	char *dbName;
 	RC rc;
 
 	SHGetSpecialFolderLocation(NULL, CSIDL_DESKTOP, &lpDlist);
@@ -179,27 +267,16 @@ void CHustBaseApp::OnCreateDB()
 	ZeroMemory(&bi, sizeof(BROWSEINFO));//不存在这句就会出错
 	bi.hwndOwner = GetForegroundWindow();//父窗口	
 	bi.pidlRoot = lpDlist;
-	bi.lpszTitle = "Save as ..."; bi.pszDisplayName = szPath;
-	bi.ulFlags = 0x0040;//通过对话框的“新建文件夹“输入文件夹名称
+	bi.lpszTitle = "Delete Database";
+	bi.pszDisplayName = szPath;
 
 	lpDlist = SHBrowseForFolder(&bi);
 	if (lpDlist != NULL)
 	{
-		SHGetPathFromIDList(lpDlist, str.GetBuffer(MAX_PATH * 2));//把文件夹路径取出来
-		str.ReleaseBuffer();
+		SHGetPathFromIDList(lpDlist, szPath);//把文件夹路径取出来
 
-		dbPath = str.GetBuffer(0); dbName = szPath;
-		rc = CreateDB(dbPath, dbName);
+		CHustBaseApp::pathvalue = false; dbName = szPath;
+		rc = DropDB(dbName);
 		if (rc != SUCCESS)return;
 	}
-}
-
-void CHustBaseApp::OnOpenDB() 
-{
-	//关联打开数据库按钮，此处应提示用户输入数据库所在位置，并调用OpenDB函数改变当前数据库路径，并在界面左侧的控件中显示数据库中的表、列信息。
-}
-
-void CHustBaseApp::OnDropDb() 
-{
-	//关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
 }
