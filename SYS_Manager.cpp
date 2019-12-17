@@ -165,9 +165,7 @@ RC CreateDB(char *dbpath,char *dbname)
 RC DropDB(char *dbname)
 {
 	char delete_db[233] = "rmdir /s/q ";
-
 	strcat(delete_db, dbname);
-
 	system(delete_db);
 
 	return SUCCESS;
