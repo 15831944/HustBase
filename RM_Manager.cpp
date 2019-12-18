@@ -300,27 +300,28 @@ RC RM_CheckWhetherRecordsExists(RM_FileHandle *fileHandle, RID rid, char ** data
 	PageNum aimPagePos = rid.pageNum;
 	SlotNum aimSlotPos = rid.slotNum;
 
+	//检查目标页是否已分配
 	auto pf_pageHandle = *src_pf_pageHandle;
 	RC openResult = GetThisPage(fileHandle->pf_fileHandle, aimPagePos, pf_pageHandle);
 	if (openResult != SUCCESS) {
 		return openResult;
-	} // check whether the page is allocated
+	}
 
+	//检查记录是否存在
 	if (aimSlotPos >= fileHandle->rm_fileSubHeader->recordsPerPage) {
 		return RM_INVALIDRID;
-	} // check whether the slot pos is beyond the max possible value
+	}
 
-	char * src_data;
-	GetData(pf_pageHandle, &src_data);
-	// get the data pointer
-
-	char * theVeryMap = src_data + sizeof(int) + (aimSlotPos / 8) * sizeof(char);
+	//检查记录是否有效
+	char * pData;
+	GetData(pf_pageHandle, &pData);
+	char * theVeryMap = pData + sizeof(int) + (aimSlotPos / 8);
 	char innerMask = (char)1 << (aimSlotPos % 8u);
 	if ((*theVeryMap & innerMask) == 0) {
 		return RM_INVALIDRID;
-	} // check whether the slot pos is valid
+	}
 
-	*data = src_data;
+	*data = pData;
 	return SUCCESS;
 }
 
@@ -358,29 +359,30 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 	} // check whether need new page
 
 	rmFileScan->pn = firstRecordOffset;
-	rmFileScan->sn = -1;
+	rmFileScan->sn = 0;
 	return SUCCESS;
 }
 
 RC CloseScan(RM_FileScan *rmFileScan)//关闭扫描
 {
 	if (rmFileScan == NULL) {
-		printf("CloseScan rmFileScan is NULL, rmFileScan=%p", rmFileScan);
+		printf("CloseScan rmFileScan is NULL, rmFileScan=%p\n", rmFileScan);
 		return FAIL;
 	}
 	rmFileScan->bOpen = false;
 	rmFileScan->pRMFileHandle = nullptr;
 	rmFileScan->conNum = -1;
 	rmFileScan->conditions = nullptr;
-	rmFileScan->pn = (PageNum)2;
+	rmFileScan->pn = 2;
 	rmFileScan->sn = -1;
 	return SUCCESS;
 }
 
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 {
+
 	if (!rmFileScan->bOpen) {
-		printf("GetNextRec ,扫描未打开");
+		printf("GetNextRec ,扫描未打开\n");
 		return RM_FSCLOSED;
 	}
 	if (rmFileScan->pRMFileHandle->rm_fileSubHeader->nRecords == 0) {//记录数为0
@@ -437,7 +439,6 @@ RC GetRec (RM_FileHandle *fileHandle,RID *rid, RM_Record *rec)
 	// load data
 
 	delete pf_fileHandle;
-	return SUCCESS;
 	return SUCCESS;
 }
 
@@ -597,23 +598,22 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 
 RC UpdateRec (RM_FileHandle *fileHandle,const RM_Record *rec)
 {
-	char * dst_data;
-	auto pf_fileHandle = new PF_PageHandle;
-	RC checkResult = RM_CheckWhetherRecordsExists(fileHandle, rec->rid, &dst_data, &pf_fileHandle);
+	char * pData;
+	auto pf_fileHandle = new PF_PageHandle();
+	RC checkResult = RM_CheckWhetherRecordsExists(fileHandle, rec->rid, &pData, &pf_fileHandle);
 	if (checkResult != SUCCESS) {
 		return checkResult;
 	}
 
 	int recordSize = fileHandle->rm_fileSubHeader->recordSize;
 	int dataSize = recordSize - sizeof(bool) - sizeof(RID);
-	int bitmapSize = (int)ceil((double)fileHandle->rm_fileSubHeader->recordsPerPage / 8.0);
-	memcpy(dst_data + sizeof(int) + sizeof(char) * bitmapSize + sizeof(char) * recordSize * rec->rid.slotNum + sizeof(bool) + sizeof(RID),
-		rec->pData, sizeof(char) * dataSize);
+	int bitmapSize = (fileHandle->rm_fileSubHeader->recordsPerPage + 7) / 8;
+	memcpy(pData + sizeof(int) + bitmapSize + recordSize * rec->rid.slotNum + sizeof(bool) + sizeof(RID),
+		rec->pData, dataSize);
 
 	MarkDirty(pf_fileHandle);
 	UnpinPage(pf_fileHandle);
 	delete pf_fileHandle;
-	return SUCCESS;
 	return SUCCESS;
 }
 
@@ -622,14 +622,14 @@ RC RM_CreateFile (char *fileName, int recordSize)
 	auto pf_fileHandle = new PF_FileHandle();
 	RC retCode = CreateFile(fileName);
 	if (retCode != SUCCESS) {
-		printf("RM_CreateFile CreateFile, retCode=%d, fileName=%s, recordSize=%d", retCode, fileName, recordSize);
+		printf("RM_CreateFile CreateFile, retCode=%d, fileName=%s, recordSize=%d\n", retCode, fileName, recordSize);
 		delete pf_fileHandle;
 		return PF_FILEERR;
 	}
 	
 	retCode = OpenFile(fileName, pf_fileHandle);//打开一个分页文件
 	if (retCode != SUCCESS) {
-		printf("RM_CreateFile OpenFile, retCode=%d, fileName=%s, recordSize=%d", retCode, fileName, recordSize);
+		printf("RM_CreateFile OpenFile, retCode=%d, fileName=%s, recordSize=%d\n", retCode, fileName, recordSize);
 		delete pf_fileHandle;
 		return PF_FILEERR;
 	}
@@ -653,12 +653,13 @@ RC RM_CreateFile (char *fileName, int recordSize)
 	delete pf_pageHandle;
 	return SUCCESS;
 }
+
 RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 {
 	auto pf_fileHandle = new PF_FileHandle();
 	RC retCode = OpenFile(fileName, pf_fileHandle);//打开一个分页文件
 	if (retCode != SUCCESS) {
-		printf("RM_OpenFile OpenFile, retCode=%d, fileName=%s, fileHandle=%p", retCode, fileName, fileHandle);
+		printf("RM_OpenFile OpenFile, retCode=%d, fileName=%s, fileHandle=%p\n", retCode, fileName, fileHandle);
 		delete pf_fileHandle;
 		return PF_FILEERR;
 	}
@@ -677,7 +678,7 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 RC RM_CloseFile(RM_FileHandle *fileHandle)
 {
 	if (fileHandle == NULL) {
-		printf("RM_CloseFile fileHandle is NULL, fileHandle=%p", fileHandle);
+		printf("RM_CloseFile fileHandle is NULL, fileHandle=%p\n", fileHandle);
 		return FAIL;
 	}
 	CloseFile(fileHandle->pf_fileHandle);
