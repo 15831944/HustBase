@@ -37,27 +37,30 @@ bool checkConditions(RM_FileScan *rm_fileScan, RM_Record *record) {
 	auto conditions = rm_fileScan->conditions;
 	auto conNum = rm_fileScan->conNum;
 	bool result = true;
+
+	//循环比较每一个扫描条件
 	for (int i = 0; i < conNum; i++) {
 		auto currentCon = conditions[i];
 		char * leftValue, *rightValue;
 
-		if (currentCon.bLhsIsAttr == 0) {
+		if (currentCon.bLhsIsAttr == 0) {//左边是值
 			leftValue = (char *)currentCon.Lvalue;
 		}
-		else {
+		else {//左边是属性
 			leftValue = new char[currentCon.LattrLength];
-			memcpy(leftValue, record->pData + sizeof(char) * currentCon.LattrOffset, sizeof(char) * currentCon.LattrLength);
-		} // load left value
+			memcpy(leftValue, record->pData + currentCon.LattrOffset, currentCon.LattrLength);
+		}
 
-		if (currentCon.bRhsIsAttr == 0) {
+		if (currentCon.bRhsIsAttr == 0) {//右边是值
 			rightValue = (char *)currentCon.Rvalue;
 		}
-		else {
+		else {//右边是属性
 			rightValue = new char[currentCon.RattrLength];
-			memcpy(rightValue, record->pData + sizeof(char) * currentCon.RattrOffset, sizeof(char) * currentCon.RattrLength);
-		} // load right value
+			memcpy(rightValue, record->pData + currentCon.RattrOffset, currentCon.RattrLength);
+		}
 
 		switch (currentCon.attrType) {
+		//int型
 		case ints: {
 			int lValue = *(int *)leftValue;
 			int rValue = *(int *)rightValue;
@@ -92,6 +95,7 @@ bool checkConditions(RM_FileScan *rm_fileScan, RM_Record *record) {
 			}
 			break;
 		}
+		//float类型
 		case floats: {
 			float lValue = *(float *)leftValue;
 			float rValue = *(float *)rightValue;
@@ -126,6 +130,7 @@ bool checkConditions(RM_FileScan *rm_fileScan, RM_Record *record) {
 			}
 			break;
 		}
+		//char类型
 		case chars: {
 			switch (currentCon.compOp) {
 			case EQual: {
@@ -175,21 +180,21 @@ bool GetNextRID(RM_FileHandle *fileHandle, RID *lastRID, RID *nextRID) {
 	auto pf_fileHandle = fileHandle->pf_fileHandle;
 	auto allocatedMap = pf_fileHandle->pBitmap;
 
-	PageNum lastPagePos = lastRID->pageNum / 8;
+	int lastPagePos = lastRID->pageNum / 8;
 	int lastPageInnerPos = lastRID->pageNum % 8;
 	int lastSlotPos = lastRID->slotNum / 8;
 	int lastSlotInnerPos = lastRID->slotNum % 8;
 
-	int bitmapSize = (int)ceil((double)fileHandle->rm_fileSubHeader->recordsPerPage / 8.0);
-	int allocateMapSize = (int)ceil((double)fileHandle->pf_fileHandle->pFileSubHeader->pageCount / 8.0);
+	int bitmapSize = (fileHandle->rm_fileSubHeader->recordsPerPage + 7) / 8;
+	int allocateMapSize = (fileHandle->pf_fileHandle->pFileSubHeader->pageCount + 7) / 8;
 
 	auto lastDataPage = new PF_PageHandle;
 	char * src_data;
 	GetThisPage(pf_fileHandle, lastRID->pageNum, lastDataPage);
 	GetData(lastDataPage, &src_data);
-	auto slotBitmap = src_data + sizeof(int);
-	// get the slot bitmap in page
+	auto slotBitmap = src_data + sizeof(int);//上一个有效记录所在页面的位图
 
+	//搜索同一byte位图控制的记录中是否存在有效记录
 	char curBitByte = slotBitmap[lastSlotPos];
 	for (int i = lastSlotInnerPos + 1; i < 8; i++) {
 		char innerMask = (char)1 << i;
@@ -201,8 +206,9 @@ bool GetNextRID(RM_FileHandle *fileHandle, RID *lastRID, RID *nextRID) {
 			delete lastDataPage;
 			return true;
 		}
-	} // search current slot byte
+	}
 
+	//搜索当前页面中是否还存在下一个有效记录
 	for (int i = lastSlotPos + 1; i < bitmapSize; i++) {
 		curBitByte = slotBitmap[i];
 		if (curBitByte == 0) {
@@ -219,26 +225,27 @@ bool GetNextRID(RM_FileHandle *fileHandle, RID *lastRID, RID *nextRID) {
 				return true;
 			}
 		}
-	} // search current page
+	}
 	UnpinPage(lastDataPage);
 	delete lastDataPage;
 
+	//搜索同一byte控制的页面是否存在下一个有效记录
 	char curAllocateBitByte = allocatedMap[lastPagePos];
 	for (int i = lastPageInnerPos + 1; i < 8; i++) {
 		char innerAllocateMask = (char)1 << i;
-		if ((curAllocateBitByte & innerAllocateMask) != 0) { // find next page
-			PageNum aimPageNum = lastPagePos * 8 + i; // possible page
+		if ((curAllocateBitByte & innerAllocateMask) != 0) { //寻找下一个存在记录的页面
+			PageNum aimPageNum = lastPagePos * 8 + i; //可能的页面
 			auto aimPageHandle = new PF_PageHandle;
 			GetThisPage(fileHandle->pf_fileHandle, aimPageNum, aimPageHandle);
 			char * page_data;
-			GetData(aimPageHandle, &page_data); // get the page's data
+			GetData(aimPageHandle, &page_data); // 获取页面数据
 			char * pageBitmap = page_data + sizeof(int);
 
 			for (int j = 0; j < bitmapSize; j++) {
 				curBitByte = pageBitmap[j];
 				if (curBitByte == 0) {
 					continue;
-				}   // if this byte is empty
+				}
 
 				for (int k = 0; k < 8; k++) {
 					char innerMask = (char)1 << k;
@@ -255,8 +262,9 @@ bool GetNextRID(RM_FileHandle *fileHandle, RID *lastRID, RID *nextRID) {
 			UnpinPage(aimPageHandle);
 			delete aimPageHandle;
 		}
-	} // search current page byte
+	}
 
+	//搜索后序页面中是否存在下一个有效记录
 	for (int i = lastPagePos + 1; i < allocateMapSize; i++) {
 		curAllocateBitByte = allocatedMap[i];
 		for (int j = 0; j < 8; j++) {
@@ -266,14 +274,14 @@ bool GetNextRID(RM_FileHandle *fileHandle, RID *lastRID, RID *nextRID) {
 				auto aimPageHandle = new PF_PageHandle;
 				GetThisPage(fileHandle->pf_fileHandle, aimPageNum, aimPageHandle);
 				char * page_data;
-				GetData(aimPageHandle, &page_data); // get the page's data
+				GetData(aimPageHandle, &page_data);
 				char * pageBitmap = page_data + sizeof(int);
 
 				for (int k = 0; k < bitmapSize; k++) {
 					curBitByte = pageBitmap[k];
 					if (curBitByte == 0) {
 						continue;
-					}   // if this byte is empty
+					} 
 
 					for (int l = 0; l < 8; l++) {
 						char innerMask = (char)1 << l;
@@ -291,7 +299,7 @@ bool GetNextRID(RM_FileHandle *fileHandle, RID *lastRID, RID *nextRID) {
 				delete aimPageHandle;
 			}
 		}
-	} // search rest page
+	}
 	return false;
 }
 
@@ -325,6 +333,7 @@ RC RM_CheckWhetherRecordsExists(RM_FileHandle *fileHandle, RID rid, char ** data
 	return SUCCESS;
 }
 
+//打开一个文件扫描
 RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *conditions)//初始化扫描
 {
 	if (fileHandle == NULL) {
@@ -336,33 +345,53 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 	rmFileScan->conNum = conNum;
 	rmFileScan->conditions = conditions;
 
-	char *pBitmap = fileHandle->pf_fileHandle->pBitmap;
-	int curPos = 0;
-	PageNum firstRecordOffset = 0;//第一个记录在数据区中的开始位置
-	while (true) {
-		if (curPos != 0) {
-			int bitmapCount = count_bit_set((unsigned char)pBitmap[curPos]);
-			if (bitmapCount != 0) {
-				firstRecordOffset = curPos * 8u + least_significant_bit_pos((unsigned char)pBitmap[curPos]);
+	char *pBitMap = fileHandle->pf_fileHandle->pBitmap;
+	if (fileHandle->pf_fileHandle->pFileSubHeader->nAllocatedPages <= 2)
+	{ //无数据页，即文件中没有存入任何记录
+		rmFileScan->pn = 0;
+		rmFileScan->sn = 0; //pn、sn等于0，表示文件中没有记录
+	}
+	else { //有数据页，寻找第一个被分配的数据页页号
+		auto pageHandle = new PF_PageHandle();
+		int i = 2;
+		while (true)
+		{
+			char x = 1 << (i % 8);
+			if ((*(pBitMap + i / 8) & x) != 0)
+			{ //找到一个已分配页
+				rmFileScan->pn = i;
+				GetThisPage(fileHandle->pf_fileHandle, rmFileScan->pn, pageHandle);
 				break;
 			}
-		}
-		else {
-			char first_byte = (unsigned char)0xfc & pBitmap[0];
-			int bitmapCount = count_bit_set((unsigned char)first_byte);
-			if (bitmapCount != 0) {
-				firstRecordOffset = (PageNum)least_significant_bit_pos((unsigned char)first_byte);
-				break;
+			else
+			{
+				i++;
 			}
 		}
-		curPos++;
-	} // check whether need new page
 
-	rmFileScan->pn = firstRecordOffset;
-	rmFileScan->sn = 0;
+		//扫描数据页位图，寻找第一条有效记录位置
+		char *rBitMap;
+		GetData(pageHandle, &rBitMap);
+		i = 0;
+		while (true)
+		{
+			char x = 1 << (i % 8);
+			if ((*(rBitMap + i / 8) & x) != 0)
+			{
+				rmFileScan->sn = i;
+				break;
+			}
+			else
+			{
+				i++;
+			}
+
+		}
+	}
 	return SUCCESS;
 }
 
+//关闭一个扫描
 RC CloseScan(RM_FileScan *rmFileScan)//关闭扫描
 {
 	if (rmFileScan == NULL) {
@@ -378,6 +407,7 @@ RC CloseScan(RM_FileScan *rmFileScan)//关闭扫描
 	return SUCCESS;
 }
 
+//获取一个满足条件的记录，并返回到rec(主要rid)
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 {
 
@@ -415,41 +445,43 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 	return RM_EOF;
 }
 
+//获取标识符为rid的记录到rec中
 RC GetRec (RM_FileHandle *fileHandle,RID *rid, RM_Record *rec) 
 {
-	char * src_data;
-	auto pf_fileHandle = new PF_PageHandle;
-	RC checkResult = RM_CheckWhetherRecordsExists(fileHandle, *rid, &src_data, &pf_fileHandle);
+	char * pData;
+	auto pf_pageHandle = new PF_PageHandle;
+	RC checkResult = RM_CheckWhetherRecordsExists(fileHandle, *rid, &pData, &pf_pageHandle);
 	if (checkResult != SUCCESS) {
-		delete pf_fileHandle;
+		delete pf_pageHandle;
 		return checkResult;
 	}
 
 	int recordSize = fileHandle->rm_fileSubHeader->recordSize;
 	int dataSize = recordSize - sizeof(bool) - sizeof(RID);
-	int bitmapSize = (int)ceil((double)fileHandle->rm_fileSubHeader->recordsPerPage / 8.0);
+	int bitmapSize = (fileHandle->rm_fileSubHeader->recordsPerPage + 7) / 8;
 
 	rec->bValid = true;
 	rec->rid.bValid = true;
 	rec->rid.pageNum = rid->pageNum;
 	rec->rid.slotNum = rid->slotNum;
 	rec->pData = new char[dataSize];
-	memcpy(rec->pData, src_data + sizeof(int) + bitmapSize * sizeof(char) + rid->slotNum * recordSize * sizeof(char) + sizeof(bool) + sizeof(RID),
-		sizeof(char) * dataSize);
-	// load data
+	memcpy(rec->pData, pData + sizeof(int) + bitmapSize + rid->slotNum * recordSize + sizeof(bool) + sizeof(RID), dataSize);
 
-	delete pf_fileHandle;
+	delete pf_pageHandle;
 	return SUCCESS;
 }
 
+//插入pData中的新记录，返回rid
 RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 {
-	int availablePageNum = fileHandle->pf_fileHandle->pFileSubHeader->nAllocatedPages;
-	char *allocatedBitmap = fileHandle->pf_fileHandle->pBitmap;
-	char *fullBitmap = fileHandle->rBitmap;
+	int availablePageNum = fileHandle->pf_fileHandle->pFileSubHeader->nAllocatedPages;//已分配页面数
+	char *allocatedBitmap = fileHandle->pf_fileHandle->pBitmap;//页面信息位图，0表示空闲页，1表示已分配
+	char *fullBitmap = fileHandle->rBitmap;//记录信息位图，满页为1，非满页为0
 	int curPos = 0;
 	PageNum newRecordPagePos = 0;
-	bool needNewPage = true;
+	bool needNewPage = true;//标记是否需要划分新页
+
+	//检查是否需要新页
 	while (availablePageNum != 0) {
 		int bitmapCount = count_bit_set((unsigned char)allocatedBitmap[curPos]);
 		if (allocatedBitmap[curPos] != fullBitmap[curPos]) {
@@ -460,13 +492,14 @@ RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 		}
 		curPos++;
 		availablePageNum -= bitmapCount;
-	} // check whether need new page
+	}
 
 	auto pf_pageHandle = new PF_PageHandle;
 	pf_pageHandle->bOpen = true;
-	int maxRecordsPerPage = fileHandle->rm_fileSubHeader->recordsPerPage;
-	int bitmapSize = (int)ceil((double)maxRecordsPerPage / 8.0);
+	int maxRecordsPerPage = fileHandle->rm_fileSubHeader->recordsPerPage;//每个页面可装载的记录数
+	int bitmapSize = (maxRecordsPerPage + 7) / 8;
 
+	//获取存放新记录的页面
 	if (needNewPage) {
 		char *tmp;
 		AllocatePage(fileHandle->pf_fileHandle, pf_pageHandle);
@@ -476,8 +509,9 @@ RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 	}
 	else {
 		GetThisPage(fileHandle->pf_fileHandle, newRecordPagePos, pf_pageHandle);
-	} // get the dst page num
+	}
 
+	//获取存放新记录的记录插槽
 	char *dst_data;
 	GetData(pf_pageHandle, &dst_data);
 	SlotNum newRecordPos = -1;
@@ -491,13 +525,13 @@ RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 			recordsMap[i] |= (1 << offset);
 			break;
 		}
-	} // find new record position and draw in map
+	}
 
 	rid->bValid = true;
 	rid->pageNum = newRecordPagePos;
 	rid->slotNum = newRecordPos;
-	// return value
 
+	//存入记录，修改相应控制变量
 	int recordSize = fileHandle->rm_fileSubHeader->recordSize;
 	int dataSize = recordSize - sizeof(bool) - sizeof(RID);
 	auto newRecord = (RM_Record *)(dst_data + sizeof(int) + sizeof(char) * bitmapSize + sizeof(char) * recordSize * newRecordPos);
@@ -508,45 +542,31 @@ RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 	memcpy(dst_data + sizeof(int) + sizeof(char) * bitmapSize + sizeof(char) * recordSize * newRecordPos + sizeof(bool) + sizeof(RID),
 		pData, sizeof(char) * dataSize);
 	recordsNum++;
-	// store new data on the page
 
 	memcpy(dst_data, &recordsNum, sizeof(int));
-	//    memcpy(dst_data + sizeof(int), recordsMap, sizeof(char) * bitmapSize);
-		// store page header info
 
 	MarkDirty(pf_pageHandle);
 	UnpinPage(pf_pageHandle);
-	// store and close data page file
 
 	int fullMapPos = -1;
 	if (recordsNum == maxRecordsPerPage) {
 		fullMapPos = newRecordPagePos / 8u;
 		char fullMapMask = (char)(1 << (newRecordPagePos % 8u));
 		fileHandle->rBitmap[fullMapPos] |= fullMapMask;
-	} // if this page is full
+	}
 
 	fileHandle->rm_fileSubHeader->nRecords++;
-	// update global info
-
-//    char * head_data;
 	auto rm_header_page = new PF_PageHandle;
 	GetThisPage(fileHandle->pf_fileHandle, 1, rm_header_page);
-	//    GetData(rm_header_page, &head_data);
-	//
-	//    memcpy(head_data, fileHandle->rm_fileSubHeader, sizeof(RM_FileSubHeader));
-	//    if (fullMapPos != -1) {
-	//        memcpy(head_data + sizeof(RM_FileSubHeader) + sizeof(char) * fullMapPos, &fileHandle->header_bitmap[fullMapPos], sizeof(char));
-	//    } // if full has been updated
-
 	MarkDirty(rm_header_page);
 	UnpinPage(rm_header_page);
 
 	delete pf_pageHandle;
 	delete rm_header_page;
 	return SUCCESS;
-	return SUCCESS;
 }
 
+//删除rid指向的记录
 RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 {
 	char * src_data;
@@ -559,20 +579,18 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 
 	int recordsNum = -1;
 	memcpy(&recordsNum, src_data, sizeof(int));
-	recordsNum--; // record num for this page
-	bool shouldDeleteFull = recordsNum == fileHandle->rm_fileSubHeader->recordsPerPage - 1;
-	bool shouldDelete = recordsNum == 0;
+	recordsNum--;
+	bool shouldDeleteFull = recordsNum == fileHandle->rm_fileSubHeader->recordsPerPage - 1;//判断满页标志
+	bool shouldDelete = recordsNum == 0;//判断空闲页标志
 
 	if (!shouldDelete) {
-		char * theVeryMap = src_data + sizeof(int) + (rid->slotNum / 8) * sizeof(char);
+		char * theVeryMap = src_data + sizeof(int) + (rid->slotNum / 8);
 		char innerMask = (char)1 << (rid->slotNum % 8u);
 		*theVeryMap &= ~innerMask;
 		memcpy(src_data, &recordsNum, sizeof(int));
-		// erase mark in page header bitmap
 	}
 	else {
-		DisposePage(fileHandle->pf_fileHandle, rid->pageNum);
-		// dispose that page
+		DisposePage(fileHandle->pf_fileHandle, rid->pageNum);//若当前页面无记录，则丢弃当前页面
 	}
 
 	auto rm_headerPage = new PF_PageHandle;
@@ -583,7 +601,7 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 		char * theVeryMap = fileHandle->rBitmap + (rid->pageNum / 8) * sizeof(char);
 		char innerMask = (char)1 << (rid->pageNum % 8u);
 		*theVeryMap &= ~innerMask;
-	} // erase mark in full bitmap
+	}
 
 	MarkDirty(rm_headerPage);
 	UnpinPage(rm_headerPage);
@@ -596,6 +614,7 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 	return SUCCESS;
 }
 
+//更新记录
 RC UpdateRec (RM_FileHandle *fileHandle,const RM_Record *rec)
 {
 	char * pData;
@@ -617,6 +636,7 @@ RC UpdateRec (RM_FileHandle *fileHandle,const RM_Record *rec)
 	return SUCCESS;
 }
 
+//创建记录文件
 RC RM_CreateFile (char *fileName, int recordSize)
 {
 	auto pf_fileHandle = new PF_FileHandle();
@@ -654,6 +674,7 @@ RC RM_CreateFile (char *fileName, int recordSize)
 	return SUCCESS;
 }
 
+//打开记录文件，返回句柄指针
 RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 {
 	auto pf_fileHandle = new PF_FileHandle();
@@ -675,6 +696,7 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 	return SUCCESS;
 }
 
+//关闭句柄对应的记录文件
 RC RM_CloseFile(RM_FileHandle *fileHandle)
 {
 	if (fileHandle == NULL) {
