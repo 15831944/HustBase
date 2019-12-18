@@ -54,7 +54,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 
 	if (rc == SUCCESS)
 	{
-		//int i = 0;
 		switch (sql_str->flag)
 		{
 		case 1:
@@ -81,7 +80,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 			CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
 			pDoc->m_pTreeView->PopulateTree(); //更新视图
 			//pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
-
 			break;
 
 		case 6:
@@ -89,7 +87,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 			DropTable(sql_str->sstr.cret.relName);
 			pDoc->m_pTreeView->PopulateTree(); //更新视图
 			//pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
-
 			break;
 
 		case 7:
@@ -142,12 +139,6 @@ RC CreateDB(char *dbpath,char *dbname)
 	char path_systable_name[233];
 	char path_syscolmn_name[233];
 
-	//bool flag = CreateDirectory(path_database_name, NULL);
-	//if (!flag) {
-	//	printf("create database directory failed!\n");
-	//	return SQL_SYNTAX; // failed
-	//}
-
 	strcpy(path_systable_name, path_database_name);
 	strcat(path_systable_name, "\\SYSTABLES");
 
@@ -161,7 +152,7 @@ RC CreateDB(char *dbpath,char *dbname)
 	return SUCCESS;
 }
 
-// different directory structure, different way to delete
+// TO DO 最外层文件夹无法删除的问题
 RC DropDB(char *dbname)
 {
 	char delete_db[233] = "rmdir /s/q ";
@@ -208,12 +199,12 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	table_con.bLhsIsAttr = 1;
 	table_con.bRhsIsAttr = 0;
 	table_con.attrType = chars;
-	table_con.LattrLength = 21;
+	table_con.LattrLength = TABLENAME_SIZE;
 	table_con.LattrOffset = 0;
 	table_con.compOp = EQual;
 	table_con.Rvalue = relName;
 
-	printf("table name: %s\n", relName);
+	printf("create table name: %s\n", relName);
 
 	RM_FileScan table_scan;
 	OpenScan(&table_scan, sys_table_handle, 1, &table_con);
@@ -280,7 +271,49 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	return SUCCESS;
 }
 
-RC DropTable(char *relName) {
+RC DropTable(char *relName) 
+{
+	char open_path[233];
+	RC rc;
+
+	int column_num = 0;
+
+	// open systables
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\SYSTABLES");
+	RM_OpenFile(open_path, sys_table_handle);
+
+	Con table_con;
+	table_con.bLhsIsAttr = 1;
+	table_con.bRhsIsAttr = 0;
+	table_con.attrType = chars;
+	table_con.LattrLength = TABLENAME_SIZE;
+	table_con.LattrOffset = 0;
+	table_con.compOp = EQual;
+	table_con.Rvalue = relName;
+
+	RM_FileScan table_scan;
+	OpenScan(&table_scan, sys_table_handle, 1, &table_con);
+	RM_Record table_rec;
+	rc = GetNextRec(&table_scan, &table_rec);
+	if (rc != SUCCESS) {
+		printf("The table dose not exist!\n");
+		CloseScan(&table_scan);
+		RM_CloseFile(sys_table_handle);
+		return rc;
+	}
+	
+	memcpy(&column_num, table_rec.pData + TABLENAME_SIZE, sizeof(int));
+
+	DeleteRec(sys_table_handle, &table_rec.rid);
+
+	CloseScan(&table_scan);
+	RM_CloseFile(sys_table_handle);
+
+
+
+
+
 	return SUCCESS;
 }
 
