@@ -211,7 +211,7 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
 	if (rc == SUCCESS) {
-		AfxMessageBox("The table already exists!\n");
+		AfxMessageBox("该表已经存在");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_EXIST;
@@ -338,11 +338,136 @@ RC DropTable(char *relName)
 	return SUCCESS;
 }
 
-RC CreateIndex(char *indexName, char *relName, char *attrName) {
+RC CreateIndex(char *indexName, char *relName, char *attrName) 
+{
+	char open_path[233];
+	RC rc;
 
+	/* PREPARATION */
 
+	// open syscolumns
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\SYSCOLUMNS");
+	RM_OpenFile(open_path, sys_colmn_handle);
 
+	// if the column of this table exists
+	Con colmn_cons[2];
+	colmn_cons[0].bLhsIsAttr = 1;
+	colmn_cons[0].bRhsIsAttr = 0;
+	colmn_cons[0].attrType = chars;
+	colmn_cons[0].LattrLength = TABLENAME_SIZE;
+	colmn_cons[0].LattrOffset = 0;
+	colmn_cons[0].compOp = EQual;
+	colmn_cons[0].Rvalue = relName;
 
+	colmn_cons[1].bLhsIsAttr = 1;
+	colmn_cons[1].bRhsIsAttr = 0;
+	colmn_cons[1].attrType = chars;
+	colmn_cons[1].LattrLength = ATTRNAME_SIZE;
+	colmn_cons[1].LattrOffset = ATTRNAME_OFFSET;
+	colmn_cons[1].compOp = EQual;
+	colmn_cons[1].Rvalue = attrName;
+
+	RM_FileScan colmn_scan;
+	OpenScan(&colmn_scan, sys_colmn_handle, 2, colmn_cons);
+	RM_Record colmn_rec;
+	rc = GetNextRec(&colmn_scan, &colmn_rec);
+	if (rc != SUCCESS) {
+		AfxMessageBox("不存在该表的该属性！");
+		CloseScan(&colmn_scan);
+		RM_CloseFile(sys_colmn_handle);
+		return FLIED_NOT_EXIST;
+	}
+	CloseScan(&colmn_scan);
+
+	// if the index name is not used
+	colmn_cons[0].bLhsIsAttr = 1;
+	colmn_cons[0].bRhsIsAttr = 0;
+	colmn_cons[0].attrType = chars;
+	colmn_cons[0].LattrLength = INDEXNAME_SIZE;
+	colmn_cons[0].LattrOffset = INDEXNAME_OFFSET;
+	colmn_cons[0].compOp = EQual;
+	colmn_cons[0].Rvalue = indexName;
+
+	OpenScan(&colmn_scan, sys_colmn_handle, 1, colmn_cons);
+	rc = GetNextRec(&colmn_scan, &colmn_rec);
+	if (rc == SUCCESS) {
+		AfxMessageBox("该索引名已被使用");
+		CloseScan(&colmn_scan);
+		RM_CloseFile(sys_colmn_handle);
+		return INDEX_NAME_REPEAT;
+	}
+	CloseScan(&colmn_scan);
+
+	// if there is no index on this column
+	char *cur_colmn = colmn_rec.pData;
+	if (*(cur_colmn + IX_FLAG_OFFSET) == '1') {
+		AfxMessageBox("该属性已经建立过索引！");
+		RM_CloseFile(sys_colmn_handle);
+		return INDEX_EXIST;
+	}
+
+	// set index flag & index name
+	*(cur_colmn + IX_FLAG_OFFSET) = '1';
+	strcpy(cur_colmn + IX_FLAG_OFFSET + 1, indexName);
+
+	// updata record
+	UpdateRec(sys_colmn_handle, &colmn_rec);
+
+	RM_CloseFile(sys_colmn_handle);
+
+	/* CREATE & OPEN & INSERT INDEX FILE*/
+
+	// create
+	AttrType attrType;
+	int attrLength;
+	memcpy(&attrType, cur_colmn + ATTRTYPE_OFFSET, ATTRTYPE_SIZE);
+	memcpy(&attrLength, cur_colmn + ATTRLENGTH_OFFSET, ATTRLENGTH_SIZE);
+
+	char index_path[233];
+	strcpy(index_path, cur_db_pathname);
+	strcat(index_path, "\\");
+	strcat(index_path, relName);
+	strcat(index_path, ".");
+	strcat(index_path, indexName);
+
+	rc = CreateIndex(index_path, attrType, attrLength);
+	if (rc != SUCCESS) {
+		AfxMessageBox("索引创建失败！");
+		return INDEX_CREATE_FAILED;
+	}
+
+	// open
+	IX_IndexHandle index_handle;
+	OpenIndex(index_path, &index_handle);
+
+	// find in the corresponding table
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\");
+	strcat(open_path, relName);
+	RM_OpenFile(open_path, sys_table_handle);
+
+	RM_FileHandle cur_table_handle;
+	RM_OpenFile(relName, &cur_table_handle);
+	RM_FileScan cur_table_scan;
+	OpenScan(&cur_table_scan, &cur_table_handle, 0, NULL);
+
+	char *attr_pdata = new char[attrLength * sizeof(char)];
+	int attrOffset;
+	memcpy(&attrOffset, cur_colmn + ATTROFFSET_OFFSET, ATTROFFSET_SIZE);
+
+	// insert
+	RM_Record index_rec;
+	while (GetNextRec(&cur_table_scan, &index_rec) == SUCCESS) {
+		memcpy(attr_pdata, index_rec.pData + attrOffset, attrLength);
+		InsertEntry(&index_handle, attr_pdata, &index_rec.rid);
+	}
+
+	delete[] attr_pdata;
+
+	CloseScan(&cur_table_scan);
+	RM_CloseFile(&cur_table_handle);
+	CloseIndex(&index_handle);
 
 	return SUCCESS;
 }

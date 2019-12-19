@@ -7,17 +7,23 @@
 #include "EditArea.h"
 #include "str.h"
 
-#define SYS_TABLE_ROW_SIZE (21 + 4)
-#define SYS_COLMN_ROW_SIZE (21 + 21 + 4 + 4 + 4 + 1 + 21)
+#define SYS_TABLE_ROW_SIZE  (21 + 4)
+#define SYS_COLMN_ROW_SIZE  (21 + 21 + 4 + 4 + 4 + 1 + 21)
 
-#define TABLENAME_SIZE  (21)
-#define ATTRNAME_SIZE   (21)
-#define INDEXNAME_SIZE  (21)
-#define ATTRTYPE_SIZE   (4)
-#define ATTRLENGTH_SIZE (4)
-#define ATTROFFSET_SIZE (4)
-#define IX_FLAG_SIZE	(1)
-#define INDEXNAME_SIZE  (21)
+#define TABLENAME_SIZE		(21)
+#define ATTRNAME_SIZE		(21)
+#define ATTRTYPE_SIZE		(4)
+#define ATTRLENGTH_SIZE		(4)
+#define ATTROFFSET_SIZE		(4)
+#define IX_FLAG_SIZE		(1)
+#define INDEXNAME_SIZE		(21)
+
+#define ATTRNAME_OFFSET		(21)
+#define ATTRTYPE_OFFSET		(21 + 21)
+#define ATTRLENGTH_OFFSET	(21 + 21 + 4)
+#define ATTROFFSET_OFFSET	(21 + 21 + 4 + 4)
+#define IX_FLAG_OFFSET		(21 + 21 + 4 + 4 + 4)
+#define INDEXNAME_OFFSET	(21 + 21 + 4 + 4 + 4 + 1)
 
 typedef struct {
 	char tablename[21];//´æ·Å±íÃû
