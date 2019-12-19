@@ -368,25 +368,7 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 				i++;
 			}
 		}
-
-		//扫描数据页位图，寻找第一条有效记录位置
-		char *rBitMap;
-		GetData(pageHandle, &rBitMap);
-		i = 0;
-		while (true)
-		{
-			char x = 1 << (i % 8);
-			if ((*(rBitMap + i / 8) & x) != 0)
-			{
-				rmFileScan->sn = i;
-				break;
-			}
-			else
-			{
-				i++;
-			}
-
-		}
+		rmFileScan->sn = -1;
 	}
 	return SUCCESS;
 }

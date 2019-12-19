@@ -227,7 +227,7 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 		strcpy(tabname[i],rec1.pData);
 		condition.bLhsIsAttr=1;
 		condition.bRhsIsAttr=0;
-	//	condition.LattrLength=strlen(tabname[i])+1;
+		condition.LattrLength=strlen(tabname[i])+1;
 		condition.LattrOffset=0;
 		condition.attrType=chars;
 		condition.compOp=EQual;
