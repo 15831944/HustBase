@@ -119,7 +119,7 @@ void CTableList::displayTabInfo(CString ParentNode)
 	CString path;
 	CString t;
 
-	DWORD cchCurDir; 
+	DWORD cchCurDir = MAX_PATH; 
  	LPTSTR lpszCurDir; 	
  	TCHAR tchBuffer[BUFFER]; 
  	lpszCurDir = tchBuffer; 

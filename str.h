@@ -13,6 +13,8 @@
 #include<stdlib.h>
 #include<string.h>
 
+#include "RC.h"
+
 //属性结构体
 typedef struct  {
   char *relName;     // relation name (may be NULL) 表名
@@ -140,13 +142,13 @@ typedef struct {
  	union sqls sstr;
 }sqlstr;
 
-#ifndef RC_HH
-#define RC_HH
-typedef enum{
-	SUCCESS,
-	SQL_SYNTAX
-}RC;
-#endif
+//#ifndef RC_HH
+//#define RC_HH
+//typedef enum{
+//	SUCCESS,
+//	SQL_SYNTAX
+//}RC;
+//#endif
 
 #ifdef __cplusplus
 extern "C"{

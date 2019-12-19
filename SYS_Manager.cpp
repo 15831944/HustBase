@@ -107,9 +107,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 
 		case 10:
 			//判断为exit语句，可以由此进行退出操作
-			AfxMessageBox("Welcome to use again！");
-			AfxGetMainWnd()->SendMessage(WM_CLOSE);//关闭窗口
-			//DestroyWindow();
 			break;
 		}
 
@@ -121,7 +118,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 	}
 }
 
-// 12/12
 //- DataBase
 // | - SysTable
 // | - SysColumn
@@ -147,8 +143,12 @@ RC CreateDB(char *dbpath,char *dbname)
 	strcpy(path_syscolmn_name, path_database_name);
 	strcat(path_syscolmn_name, "\\SYSCOLUMNS");
 
-	RM_CreateFile(path_systable_name, SYS_TABLE_ROW_SIZE);
-	RM_CreateFile(path_syscolmn_name, SYS_COLMN_ROW_SIZE);
+	RC rc_table = RM_CreateFile(path_systable_name, SYS_TABLE_ROW_SIZE);
+	RC rc_colmn = RM_CreateFile(path_syscolmn_name, SYS_COLMN_ROW_SIZE);
+	if ((rc_table != SUCCESS) | (rc_colmn != SUCCESS)) {
+		AfxMessageBox("创建数据库系统表失败！");
+		return DATABASE_FAILED;
+	}
 
 	printf("CreateDB successed!\n");
 	return SUCCESS;
@@ -182,7 +182,6 @@ RC CloseDB()
 	return SUCCESS;
 }
 
-// 12/13
 RC CreateTable(char *relName, int attrCount, AttrInfo *attributes) 
 {
 	char open_path[233];
@@ -215,7 +214,7 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 		AfxMessageBox("The table already exists!\n");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
-		return rc;
+		return TABLE_EXIST;
 	}
 	CloseScan(&table_scan);
 
@@ -225,11 +224,7 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	memcpy(new_table + TABLENAME_SIZE, &attrCount, sizeof(int));
 
 	RID tmp_rid;
-	rc = InsertRec(sys_table_handle, new_table, &tmp_rid);
-	if (rc != SUCCESS) {
-		printf("Insert into systable failed!\n");
-		return rc;
-	}
+	InsertRec(sys_table_handle, new_table, &tmp_rid);
 
 	RM_CloseFile(sys_table_handle);
 	delete[] new_table;
@@ -267,7 +262,11 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	strcpy(new_table_path, cur_db_pathname);
 	strcat(new_table_path, "\\");
 	strcat(new_table_path, relName);
-	RM_CreateFile(new_table_path, attr_total_offset);
+	rc = RM_CreateFile(new_table_path, attr_total_offset);
+	if (rc != SUCCESS) {
+		AfxMessageBox("表创建失败！");
+		return TABLE_CREATE_FAILED;
+	}
 
 	return SUCCESS;
 }
@@ -303,7 +302,7 @@ RC DropTable(char *relName)
 		AfxMessageBox("The table dose not exist");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
-		return rc;
+		return TABLE_NOT_EXIST;
 	}
 	DeleteRec(sys_table_handle, &table_rec.rid);			// 删除记录
 
@@ -327,17 +326,24 @@ RC DropTable(char *relName)
 	CloseScan(&colmn_scan);
 	RM_CloseFile(sys_colmn_handle);
 
-	// delete files
+	// delete table file
 	char delete_table[233] = "del /a /f /q ";
 	strcat(delete_table, cur_db_pathname);
 	strcat(delete_table, "\\");
 	strcat(delete_table, relName);
 	system(delete_table);
 
+	// TO DO: delete index files
+
 	return SUCCESS;
 }
 
 RC CreateIndex(char *indexName, char *relName, char *attrName) {
+
+
+
+
+
 	return SUCCESS;
 }
 
