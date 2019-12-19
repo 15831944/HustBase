@@ -195,6 +195,8 @@ void CHustBaseApp::OnCreateDB()
 			AfxMessageBox("创建数据库失败！");
 			return;
 		}
+
+		CoTaskMemFree((LPVOID)pidl);			//释放pIDL所指向内存空间
 	}
 }
 
@@ -223,10 +225,10 @@ void CHustBaseApp::OnOpenDB()
 		// 检查数据库，是否有SYSTABLES和SYSCOLUMNS
 		SetCurrentDirectory(path);
 		CFileFind fileFind;
-		BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
-		BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");
-		if (!table_Exist || !columns_Exist) {
-			AfxMessageBox("数据库格式错误！不存在系统表！");
+		BOOL table_exist = fileFind.FindFile("SYSTABLES");
+		BOOL colmn_exist = fileFind.FindFile("SYSCOLUMNS");
+		if (!table_exist || !colmn_exist) {
+			AfxMessageBox("数据库格式错误！不存在系统文件！");
 			return;
 		}
 
@@ -237,10 +239,12 @@ void CHustBaseApp::OnOpenDB()
 		}
 
 		// 显示数据库结构
-		//CHustBaseApp::pathvalue = true;
+		CHustBaseApp::pathvalue = true;
 		CHustBaseDoc *pDoc;
 		pDoc = CHustBaseDoc::GetDoc();
 		pDoc->m_pTreeView->PopulateTree();
+
+		CoTaskMemFree((LPVOID)pidl);			//释放pIDL所指向内存空间
 	}
 }
 
@@ -268,12 +272,25 @@ void CHustBaseApp::OnDropDb()
 		SHGetPathFromIDList(pidl, path);
 
 		// 检查数据库，是否有SYSTABLES和SYSCOLUMNS
-		SetCurrentDirectory(path);
+		// 不能用SetCurrentDirectory(path)，否则无法删除当前正在使用的目录
 		CFileFind fileFind;
-		BOOL table_Exist = (BOOL)fileFind.FindFile("SYSTABLES");
-		BOOL columns_Exist = (BOOL)fileFind.FindFile("SYSCOLUMNS");
-		if (!table_Exist || !columns_Exist) {
-			AfxMessageBox("该文件不是数据库文件！删除数据库失败！");
+		char check_path[MAX_PATH];
+		strcpy(check_path, path);
+		strcat(check_path, "\\SYSTABLES");
+		BOOL table_exist = fileFind.FindFile(check_path);
+		strcpy(check_path, path);
+		strcat(check_path, "\\SYSCOLUMNS");
+		BOOL colmn_exist = fileFind.FindFile(check_path);
+		if (!table_exist || !colmn_exist) {
+			AfxMessageBox("数据库格式错误！不存在系统文件！");
+			return;
+		}
+
+		// 检查是否为当前打开的数据库
+		char cur_db[MAX_PATH];
+		GetCurrentDirectory(MAX_PATH, cur_db);
+		if (strcmp(cur_db, path) == 0) {
+			AfxMessageBox("无法删除当前打开的数据库！");
 			return;
 		}
 
@@ -283,5 +300,7 @@ void CHustBaseApp::OnDropDb()
 			AfxMessageBox("删除数据库失败！");
 			return;
 		}
+
+		CoTaskMemFree((LPVOID)pidl);			//释放pIDL所指向内存空间
 	}
 }

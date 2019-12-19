@@ -154,7 +154,6 @@ RC CreateDB(char *dbpath,char *dbname)
 	return SUCCESS;
 }
 
-// TO DO 最外层文件夹无法删除的问题
 RC DropDB(char *dbname)
 {
 	char delete_db[233] = "rmdir /s/q ";
@@ -197,23 +196,23 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	RM_OpenFile(open_path, sys_table_handle);
 	
 	// if the table already existed
-	Con table_con;
-	table_con.bLhsIsAttr = 1;
-	table_con.bRhsIsAttr = 0;
-	table_con.attrType = chars;
-	table_con.LattrLength = TABLENAME_SIZE;
-	table_con.LattrOffset = 0;
-	table_con.compOp = EQual;
-	table_con.Rvalue = relName;
+	Con find_con;
+	find_con.bLhsIsAttr = 1;
+	find_con.bRhsIsAttr = 0;
+	find_con.attrType = chars;
+	find_con.LattrLength = TABLENAME_SIZE;
+	find_con.LattrOffset = 0;
+	find_con.compOp = EQual;
+	find_con.Rvalue = relName;
 
 	printf("create table name: %s\n", relName);
 
 	RM_FileScan table_scan;
-	OpenScan(&table_scan, sys_table_handle, 1, &table_con);
+	OpenScan(&table_scan, sys_table_handle, 1, &find_con);
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
 	if (rc == SUCCESS) {
-		printf("The table already exists!\n");
+		AfxMessageBox("The table already exists!\n");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
 		return rc;
@@ -280,41 +279,60 @@ RC DropTable(char *relName)
 
 	int column_num = 0;
 
+	/* for SYSTABLES */
+
 	// open systables
 	strcpy(open_path, cur_db_pathname);
 	strcat(open_path, "\\SYSTABLES");
 	RM_OpenFile(open_path, sys_table_handle);
 
-	Con table_con;
-	table_con.bLhsIsAttr = 1;
-	table_con.bRhsIsAttr = 0;
-	table_con.attrType = chars;
-	table_con.LattrLength = TABLENAME_SIZE;
-	table_con.LattrOffset = 0;
-	table_con.compOp = EQual;
-	table_con.Rvalue = relName;
+	Con find_con;
+	find_con.bLhsIsAttr = 1;
+	find_con.bRhsIsAttr = 0;
+	find_con.attrType = chars;
+	find_con.LattrLength = TABLENAME_SIZE;
+	find_con.LattrOffset = 0;
+	find_con.compOp = EQual;
+	find_con.Rvalue = relName;
 
 	RM_FileScan table_scan;
-	OpenScan(&table_scan, sys_table_handle, 1, &table_con);
+	OpenScan(&table_scan, sys_table_handle, 1, &find_con);
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
 	if (rc != SUCCESS) {
-		printf("The table dose not exist!\n");
+		AfxMessageBox("The table dose not exist");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
 		return rc;
 	}
-	
-	memcpy(&column_num, table_rec.pData + TABLENAME_SIZE, sizeof(int));
-
-	DeleteRec(sys_table_handle, &table_rec.rid);
+	DeleteRec(sys_table_handle, &table_rec.rid);			// 删除记录
 
 	CloseScan(&table_scan);
 	RM_CloseFile(sys_table_handle);
 
+	/* for SYSCOLUMNS */
 
+	// open syscolumns
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\SYSCOLUMNS");
+	RM_OpenFile(open_path, sys_colmn_handle);
 
+	RM_FileScan colmn_scan;
+	OpenScan(&colmn_scan, sys_colmn_handle, 1, &find_con);
+	RM_Record colmn_rec;
+	while (GetNextRec(&colmn_scan, &colmn_rec) == SUCCESS) {
+		DeleteRec(sys_colmn_handle, &(colmn_rec.rid));		// 删除记录
+	}
 
+	CloseScan(&colmn_scan);
+	RM_CloseFile(sys_colmn_handle);
+
+	// delete files
+	char delete_table[233] = "del /a /f /q ";
+	strcat(delete_table, cur_db_pathname);
+	strcat(delete_table, "\\");
+	strcat(delete_table, relName);
+	system(delete_table);
 
 	return SUCCESS;
 }
