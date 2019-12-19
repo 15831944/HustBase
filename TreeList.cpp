@@ -114,7 +114,7 @@ void CTreeList::InsertDBNodes()
 {
 //	_dic_type dicStruct; 
 
-	HTREEITEM hItem, hsubItem, hCItem;
+	HTREEITEM hItem, hsubItem, hCItem = NULL;
 	hsubItem = NULL;
 	char tabname[20][20];
 	char colname[20][20][20];
