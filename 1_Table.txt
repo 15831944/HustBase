@@ -3,7 +3,7 @@ CREATE TABLE Student(id int, name char(20), old int, height float, weight float)
 
 CREATE TABLE Course(id int, courseOname char(50));
 
-CREATE TABLE Teacher（id int, gender int, name char(20));
+CREATE TABLE Teacher(id int, gender int, name char(20));
 
 CREATE TABLE CourseOTeacher(id int, courseOid int, teacherOid int);
 
