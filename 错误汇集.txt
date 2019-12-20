@@ -8,3 +8,4 @@
 
 /** 实验中的错误  **/
 1. 扫描起始点传入的参数错误，修改扫描起始点
+2.TableList.cpp 里面系统表查询函数conditions需要增加LAttrLength,condition.LattrLength = ParentNode.GetLength();

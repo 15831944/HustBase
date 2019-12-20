@@ -136,7 +136,7 @@ void CTableList::displayTabInfo(CString ParentNode)
 	condition.attrType=chars;
 	condition.compOp=EQual;
 	condition.Rvalue=(LPSTR)(LPCTSTR)ParentNode;
-
+	condition.LattrLength = ParentNode.GetLength();
 	rc=OpenScan(&FileScan,&fileHandle,1,&condition);
 	if(rc!=SUCCESS)
 		AfxMessageBox("初始化文件扫描失败");
