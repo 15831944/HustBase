@@ -1,0 +1,56 @@
+/*******************************  CREATE TABLE  *******************************/
+CREATE TABLE Student(id int, name char(20), old int, height float, weight float);
+
+CREATE TABLE Course(id int, course_name char(50));
+
+CREATE TABLE Teacher（id int, gender int, name char(20));
+
+CREATE TABLE Course_Teacher(id int, course_id int, teacher_id int);
+
+CREATE TABLE Course_Student(id int, course_id int, student_id);
+
+/*******************************  DROP TABLE  *********************************/
+DROP TABLE Student;
+
+DROP TABLE Course;
+
+DROP TABLE Teacher;
+
+DROP TABLE Course_Treacher;
+
+DROP TABLE Course_Student;
+
+/********************************  CREATE INDEX  ******************************/
+CREATE INDEX student_id_idx ON Student(id);
+
+CREATE INDEX student_old_idx ON Student(old);
+
+CREATE INDEX course_course_name_idx ON Course(course_name);
+
+CREATE INDEX teacher_id_idx ON Teacher(id);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
