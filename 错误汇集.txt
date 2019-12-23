@@ -6,6 +6,7 @@
 
 
 
-
 /** 实验中的错误  **/
 1. 扫描起始点传入的参数错误，修改扫描起始点
+2. checkConditions函数中，分配leftValue = new char[currentCon.LattrLength];修改为：
+	leftValue = new char[currentCon.LattrLength+1]; 这样字符串后面会增加\0
