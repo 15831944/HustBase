@@ -14,104 +14,84 @@ RM_FileHandle *sys_colmn_handle = NULL;
 
 
 RC if_table_exist(char *relName);
-RC GetColsInfo(char *relName, char ** attrName, AttrType * attrType, int * attrLength, int * attrOffset, bool * ixFlag, char ** indexName)
+
+RC GetColsInfo(char *relName, char **attrName, AttrType *attrType, int *attrLength, int *attrOffset, bool *ixFlag, char **indexName)
 {
 	char open_path[233];
-
-	Con table_condition;
-	table_condition.bLhsIsAttr = 1;
-	table_condition.bRhsIsAttr = 0;
-	table_condition.compOp = EQual;
-	table_condition.attrType = chars;
-	table_condition.LattrOffset = 0;
-	table_condition.LattrLength = 21;
-	table_condition.Rvalue = relName;
-	int cur_pos = 0;
 
 	// open syscolumns
 	strcpy(open_path, cur_db_pathname);
 	strcat(open_path, "\\SYSCOLUMNS");
 	RM_OpenFile(open_path, sys_colmn_handle);
 
-	RM_FileScan col_scan;
-	RM_Record col_record;
-	OpenScan(&col_scan, sys_colmn_handle, 1, &table_condition);
-	while (true) {
-		RC is_existed = GetNextRec(&col_scan, &col_record);
-		if (is_existed != SUCCESS) {
-			break;
-		}
-		auto cur_row = col_record.pData;
-		strcpy(attrName[cur_pos], cur_row + TABLENAME_SIZE);
-		memcpy(&attrType[cur_pos], cur_row + TABLENAME_SIZE + ATTRNAME_SIZE, sizeof(int));
-		memcpy(&attrLength[cur_pos], cur_row + TABLENAME_SIZE + ATTRNAME_SIZE + ATTRTYPE_SIZE, sizeof(int));
-		memcpy(&attrOffset[cur_pos], cur_row + TABLENAME_SIZE + ATTRNAME_SIZE + ATTRTYPE_SIZE + ATTRLENGTH_SIZE,
-			sizeof(int));
-		memcpy(&ixFlag[cur_pos], cur_row + IX_FLAG_OFFSET, 1);
-		if (ixFlag[cur_pos] == 1) {
-			strcpy(indexName[cur_pos], cur_row + IX_FLAG_OFFSET + 1);
-		}
-		cur_pos++;
+	Con find_con;
+	find_con.bLhsIsAttr = 1;
+	find_con.bRhsIsAttr = 0;
+	find_con.attrType = chars;
+	find_con.LattrLength = TABLENAME_SIZE;
+	find_con.LattrOffset = 0;
+	find_con.compOp = EQual;
+	find_con.Rvalue = relName;
+
+	RM_FileScan colmn_scan;
+	OpenScan(&colmn_scan, sys_table_handle, 1, &find_con);
+	RM_Record colmn_rec;
+	for (int i = 0; GetNextRec(&colmn_scan, &colmn_rec) == SUCCESS; i++) {
+		char *cur_colmn = colmn_rec.pData;
+		strcpy(attrName[i], cur_colmn + ATTRNAME_SIZE);
+		memcpy(&attrType[i], cur_colmn + ATTRTYPE_OFFSET, ATTRTYPE_SIZE);
+		memcpy(&attrLength[i], cur_colmn + ATTRLENGTH_OFFSET, ATTRLENGTH_SIZE);
+		memcpy(&attrOffset[i], cur_colmn + ATTROFFSET_OFFSET, ATTROFFSET_SIZE);
+		memcpy(&ixFlag[i], cur_colmn + IX_FLAG_OFFSET, IX_FLAG_SIZE);
+		if (ixFlag[i])
+			strcpy(indexName[i], cur_colmn + INDEXNAME_OFFSET);
 	}
-	CloseScan(&col_scan);
+
+	CloseScan(&colmn_scan);
 	RM_CloseFile(sys_colmn_handle);
+
 	return SUCCESS;
 }
 
-Con *convert_conditions(int con_num, Condition *cons, int col_num, char ** col_name, const int *col_length, const int *col_offset, const AttrType *col_types) {
-	auto converted_cons = new Con[con_num];
+RC con_from_conditions(int con_num, Condition *conditions, int attr_count, char **attr_name, int *attr_length, int *attr_offset, AttrType *attr_types, Con *cons)
+{
 	for (int i = 0; i < con_num; i++) {
-		auto cur_con = cons[i];
-		auto cur_converted = &converted_cons[i];
-		char * left_value = nullptr, *right_value = nullptr;
-		int left_length = 0, right_length = 0;
-		int left_offset = 0, right_offset = 0;
-		AttrType attr_type = ints;
+		Condition cur_condition = conditions[i];
 
-		if (cur_con.bLhsIsAttr == 0) {
-			attr_type = cur_con.lhsValue.type;
-			left_value = (char *)cur_con.lhsValue.data;
-		}
-		else {
-			for (int j = 0; j < col_num; j++) {
-				if (strcmp(cur_con.lhsAttr.attrName, col_name[j]) == 0) {
-					attr_type = col_types[j];
-					left_length = col_length[j];
-					left_offset = col_offset[j];
+		cons[i].bLhsIsAttr = cur_condition.bLhsIsAttr;
+		cons[i].bRhsIsAttr = cur_condition.bRhsIsAttr;
+		cons[i].compOp = cur_condition.op;
+
+		if (cur_condition.bLhsIsAttr) {
+			for (int j = 0; j < attr_count; j++) {
+				if (!strcmp(cur_condition.lhsAttr.attrName, attr_name[j])) {
+					cons[i].attrType = attr_types[j];
+					cons[i].LattrLength = attr_length[j];
+					cons[i].LattrOffset = attr_offset[j];
 					break;
 				}
 			}
+		} else {
+			//cons[i].attrType = cur_condition.lhsValue.type;
+			cons[i].Lvalue = cur_condition.lhsValue.data;
 		}
 
-		if (cur_con.bRhsIsAttr == 0) {
-			attr_type = cur_con.rhsValue.type;
-			right_value = (char *)cur_con.rhsValue.data;
-		}
-		else {
-			for (int j = 0; j < col_num; j++) {
-				if (strcmp(cur_con.rhsAttr.attrName, col_name[j]) == 0) {
-					attr_type = col_types[j];
-					right_length = col_length[j];
-					right_offset = col_offset[j];
+		if (cur_condition.bRhsIsAttr) {
+			for (int j = 0; j < attr_count; j++) {
+				if (!strcmp(cur_condition.rhsAttr.attrName, attr_name[j])) {
+					cons[i].attrType = attr_types[j];
+					cons[i].RattrLength = attr_length[j];
+					cons[i].RattrOffset = attr_offset[j];
 				}
 			}
+		} else {
+			//cons[i].attrType = cur_condition.rhsValue.type;
+			cons[i].Rvalue = cur_condition.rhsValue.data;
 		}
-
-		cur_converted->bLhsIsAttr = cur_con.bLhsIsAttr;
-		cur_converted->bRhsIsAttr = cur_con.bRhsIsAttr;
-		cur_converted->attrType = attr_type;
-		cur_converted->LattrLength = left_length;
-		cur_converted->LattrOffset = left_offset;
-		cur_converted->RattrLength = right_length;
-		cur_converted->RattrOffset = right_offset;
-		cur_converted->compOp = cur_con.op;
-		cur_converted->Lvalue = left_value;
-		cur_converted->Rvalue = right_value;
 	}
-	return converted_cons;
+
+	return SUCCESS;
 }
-
-
 
 void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 {//根据执行的语句类型在界面上显示执行结果。此函数需修改
@@ -341,17 +321,12 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	for (int i = 0; i < attrCount; i++) {
 		char col_info[SYS_COLMN_ROW_SIZE];
 		AttrInfo attr_i = attributes[i];
-		int offset = 0;
-		strcpy(col_info + offset, relName);
-		offset += TABLENAME_SIZE;
-		strcpy(col_info + offset, attr_i.attrName);
-		offset += ATTRNAME_SIZE;
-		memcpy(col_info + offset, &attr_i.attrType, ATTRTYPE_SIZE);
-		offset += ATTRTYPE_SIZE;
-		memcpy(col_info + offset, &attr_i.attrLength, ATTRLENGTH_SIZE);
-		offset += ATTRLENGTH_SIZE;
-		memcpy(col_info + offset, &attr_total_offset, ATTROFFSET_SIZE);
-		// ix is empty
+		strcpy(col_info, relName);
+		strcpy(col_info + ATTRNAME_OFFSET, attr_i.attrName);
+		memcpy(col_info + ATTRTYPE_OFFSET, &attr_i.attrType, ATTRTYPE_SIZE);
+		memcpy(col_info + ATTRLENGTH_OFFSET, &attr_i.attrLength, ATTRLENGTH_SIZE);
+		memcpy(col_info + ATTROFFSET_OFFSET, &attr_total_offset, ATTROFFSET_SIZE);
+		memset(col_info + IX_FLAG_OFFSET, 0, IX_FLAG_SIZE + INDEXNAME_SIZE);		// ix is empty
 		attr_total_offset += attr_i.attrLength;
 		InsertRec(sys_colmn_handle, col_info, &tmp_rid);
 	}
@@ -680,15 +655,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	CloseScan(&table_scan);
 	RM_CloseFile(sys_table_handle);
 
-	// TO DO
-	// 参数的类型和查表的类型是反的？？
-	for (int i = 0; i < attr_count; i++) {
-		if (values[i].type == chars)
-			printf("chars ");
-		else if (values[i].type == ints)
-			printf("ints ");
-		else printf("floats ");
-	}
+	// 参数的类型和查表的类型是反的
 
 	// 检查插入的值的属性是否符合要求，记录是否需要建立索引
 	strcpy(open_path, cur_db_pathname);
@@ -707,7 +674,7 @@ RC Insert(char *relName, int nValues, Value * values)
 		AttrType attr_type;
 		memcpy(&attr_type, cur_colmn + ATTRTYPE_OFFSET, ATTRTYPE_SIZE);
 		// 检查属性是否相符
-		if (attr_type != values[i].type) {
+		if (attr_type != values[attr_count - 1 - i].type) {
 			AfxMessageBox("插入的字段类型有误！");
 			CloseScan(&colmn_scan);
 			RM_CloseFile(sys_colmn_handle);
@@ -723,7 +690,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	// 构建元组并插入
 	char insert_value[233];
 	for (int i = 0, offset = 0; i < attr_count; i++) {
-		memcpy(insert_value + offset, values[i].data, attr_len[i]);
+		memcpy(insert_value + offset, values[attr_count - 1 - i].data, attr_len[i]);
 		offset += attr_len[i];
 	}
 
@@ -789,23 +756,24 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	find_con.compOp = EQual;
 	find_con.Rvalue = relName;
 
-	RM_FileScan table_scan;
-	OpenScan(&table_scan, sys_table_handle, 1, &find_con);
-	RM_Record table_rec;
-	rc = GetNextRec(&table_scan, &table_rec);
+	RM_FileScan sys_table_scan;
+	OpenScan(&sys_table_scan, sys_table_handle, 1, &find_con);
+	RM_Record sys_table_rec;
+	rc = GetNextRec(&sys_table_scan, &sys_table_rec);
 	if (rc != SUCCESS) {
 		AfxMessageBox("该表不存在");
-		CloseScan(&table_scan);
+		CloseScan(&sys_table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_NOT_EXIST;
 	}
 
 	int attr_count = 0;
-	memcpy(&attr_count, table_rec.pData + ATTRCOUNT_OFFSET, ATTRCOUNT_SIZE);
+	memcpy(&attr_count, sys_table_rec.pData + ATTRCOUNT_OFFSET, ATTRCOUNT_SIZE);
 
-	CloseScan(&table_scan);
+	CloseScan(&sys_table_scan);
 	RM_CloseFile(sys_table_handle);
 	
+
 	char **attr_name = new char* [attr_count];
 	int *attr_length = new int[attr_count];
 	int *attr_offset = new int[attr_count];
@@ -819,44 +787,41 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	}
 
 	GetColsInfo(relName, attr_name, attr_type, attr_length, attr_offset, attr_ix_flag, attr_idxname);
-	//GetColsInfo(relName, col_name, col_types, col_length, col_offset, col_is_indx, col_indx_name);
-	auto cons = convert_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type);
-	//auto cons = convert_conditions(nConditions, conditions, col_num, col_name, col_length, col_offset, col_types);
+	Con *cons = new Con[attr_count];
+	con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
+	
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\");
+	strcat(open_path, relName);
 
-	char full_tab_name[255];
-	strcpy(full_tab_name, cur_db_pathname);
-	strcat(full_tab_name, "\\");
-	strcat(full_tab_name, relName);
+	RM_FileHandle table_handle;
+	RM_OpenFile(open_path, &table_handle);
+	RM_FileScan table_scan;
+	OpenScan(&table_scan, &table_handle, nConditions, cons);
 
-	RM_FileHandle rm_fileHandle;
-	RM_FileScan rm_fileScan;
-	RM_OpenFile(full_tab_name, &rm_fileHandle);
-	OpenScan(&rm_fileScan, &rm_fileHandle, nConditions, cons);
+	int total_rec = table_handle.rm_fileSubHeader->nRecords;
+	int data_size = table_handle.rm_fileSubHeader->recordSize - sizeof(bool) - sizeof(RID);
 
-	RID *removed_rid = new RID[rm_fileHandle.rm_fileSubHeader->nRecords];
-	char **removed_data = new char*[rm_fileHandle.rm_fileSubHeader->nRecords];
-	for (int i = 0; i < rm_fileHandle.rm_fileSubHeader->nRecords; i++) {
-		removed_data[i] = new char[rm_fileHandle.rm_fileSubHeader->recordSize - sizeof(bool) - sizeof(RID)];
+	RID *removed_rid = new RID [total_rec];
+	char **removed_data = new char* [total_rec];
+	for (int i = 0; i < total_rec; i++) {
+		removed_data[i] = new char [data_size];
 	}
 
 	int removed_num = 0;
-
-	while (true) {
-		RM_Record record;
-		RC result = GetNextRec(&rm_fileScan, &record);
-		if (result != SUCCESS) {
-			break;
-		}
+	RM_Record record;
+	while (GetNextRec(&table_scan, &record) == SUCCESS) {
 		removed_rid[removed_num] = record.rid;
-		memcpy(removed_data[removed_num], record.pData, (size_t)rm_fileHandle.rm_fileSubHeader->recordSize - sizeof(bool) - sizeof(RID));
+		memcpy(removed_data[removed_num], record.pData, data_size);
 		removed_num++;
 	}
-	CloseScan(&rm_fileScan);
+	CloseScan(&table_scan);
 
 	for (int i = 0; i < removed_num; i++) {
-		DeleteRec(&rm_fileHandle, &removed_rid[i]);
+		DeleteRec(&table_handle, &removed_rid[i]);
 	}
-	RM_CloseFile(&rm_fileHandle);
+
+	RM_CloseFile(&table_handle);
 
 	for (int i = 0; i < attr_count; i++) {
 		if (attr_ix_flag[i]) {
@@ -870,7 +835,6 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 			auto ix_indexHandle = new IX_IndexHandle;
 			OpenIndex(full_index_name, ix_indexHandle);
 			for (int j = 0; j < removed_num; j++) {
-				printf("Deleting %d\n", j);
 				DeleteEntry(ix_indexHandle, removed_data[j] + attr_offset[i], &removed_rid[j]);
 			}
 			CloseIndex(ix_indexHandle);
@@ -878,10 +842,9 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 		}
 	}
 
-	for (int i = 0; i < rm_fileHandle.rm_fileSubHeader->nRecords; i++) {
+	for (int i = 0; i < total_rec; i++) {
 		delete[] removed_data[i];
 	}
-
 	delete[] removed_rid;
 	delete[] removed_data;
 
@@ -889,7 +852,6 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 		delete[] attr_name[i];
 		delete[] attr_idxname[i];
 	}
-
 	delete[] attr_name;
 	delete[] attr_length;
 	delete[] attr_offset;
