@@ -181,14 +181,14 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 			//判断SQL语句为createTable语句
 			CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
 			pDoc->m_pTreeView->PopulateTree(); //更新视图
-			//pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
+			pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
 			break;
 
 		case 6:
 			//判断SQL语句为dropTable语句
 			DropTable(sql_str->sstr.cret.relName);
 			pDoc->m_pTreeView->PopulateTree(); //更新视图
-			//pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
+			pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
 			break;
 
 		case 7:
