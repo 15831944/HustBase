@@ -38,6 +38,22 @@ typedef struct {
 	int  ridIx;		//扫描即将处理的索引项编号
 }IX_IndexScan;
 
+struct Tree_Node {
+	int  keyNum;	//节点中包含的关键字（属性值）个数
+	char** keys;	//节点中包含的关键字（属性值）数组
+	Tree_Node* parent;	//父节点
+	Tree_Node* sibling;	//右边的兄弟节点
+	Tree_Node* firstChild;	//最左边的孩子节点
+}; //节点数据结构
+
+struct Tree {
+	AttrType  attrType;	//B+树对应属性的数据类型
+	int  attrLength;		//B+树对应属性值的长度
+	int  order;			//B+树的序数
+	Tree_Node * root;	//B+树的根节点
+};
+
+
 RC CreateIndex(char* fileName, AttrType attrType, int attrLength);
 RC OpenIndex(char* fileName, IX_IndexHandle* indexHandle);
 RC CloseIndex(IX_IndexHandle* indexHandle);

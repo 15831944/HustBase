@@ -47,16 +47,28 @@ bool checkConditions(RM_FileScan *rm_fileScan, RM_Record *record) {
 			leftValue = (char *)currentCon.Lvalue;
 		}
 		else {//左边是属性
-			leftValue = new char[currentCon.LattrLength+1];
-			memcpy(leftValue, record->pData + currentCon.LattrOffset, currentCon.LattrLength+1);
+			if (currentCon.attrType == chars) {
+				leftValue = new char[currentCon.LattrLength + 1];
+				memcpy(leftValue, record->pData + currentCon.LattrOffset, currentCon.LattrLength + 1);
+			}
+			else {
+				leftValue = new char[currentCon.LattrLength];
+				memcpy(leftValue, record->pData + currentCon.LattrOffset, currentCon.LattrLength);
+			}
 		}
 
 		if (currentCon.bRhsIsAttr == 0) {//右边是值
 			rightValue = (char *)currentCon.Rvalue;
 		}
 		else {//右边是属性
-			rightValue = new char[currentCon.RattrLength+1];
-			memcpy(rightValue, record->pData + currentCon.RattrOffset, currentCon.RattrLength+1);
+			if (currentCon.attrType == chars) {
+				rightValue = new char[currentCon.RattrLength + 1];
+				memcpy(rightValue, record->pData + currentCon.RattrOffset, currentCon.RattrLength + 1);
+			}
+			else {
+				rightValue = new char[currentCon.RattrLength];
+				memcpy(rightValue, record->pData + currentCon.RattrOffset, currentCon.RattrLength);
+			}
 		}
 
 		switch (currentCon.attrType) {
