@@ -1198,3 +1198,46 @@ void insertKeyAndRidToPage(PF_PageHandle* pageHandle, int order, AttrType attrTy
 		memcpy(rid, parentRids + position * sizeof(RID), sizeof(RID));
 	}
 }
+
+
+
+RC GetIndexTree(char* fileName, Tree* index)
+{
+	IX_IndexHandle* indexHandle = new IX_IndexHandle;
+	if (OpenFile(fileName, &indexHandle->fileHandle))
+		return FAIL;
+
+	char* pageData = nullptr;
+	char* pageKeys = nullptr;
+	char* pageRids = nullptr;
+	IX_Node* nodeControlInfo = nullptr;
+
+	Tree_Node* treeNode = new Tree_Node;
+	Tree_Node* brotherNode = new Tree_Node;
+	Tree_Node* firstChild = nullptr;
+
+	index->attrLength = indexHandle->fileHeader.attrLength;
+	index->attrType = indexHandle->fileHeader.attrType;
+	index->order = indexHandle->fileHeader.order;
+	/*
+	index->root->keyNum
+	index->root->keys
+	index->root->firstChild =
+	index->root->parent
+	index->root->sibling */
+
+	PF_PageHandle* pageHandle = new PF_PageHandle;
+	GetThisPage(&indexHandle->fileHandle, indexHandle->fileHeader.rootPage, pageHandle);
+	GetData(pageHandle, &pageData);
+	nodeControlInfo = (IX_Node*)(pageData + sizeof(IX_FileHeader));								//本页面节点
+	pageKeys = pageData + sizeof(IX_FileHeader) + sizeof(IX_Node);								//关键字区
+	pageRids = pageKeys + indexHandle->fileHeader.order * indexHandle->fileHeader.attrLength;	//指针区	
+
+	index->root->keyNum = nodeControlInfo->keynum;
+	memcpy(index->root->keys, pageKeys, nodeControlInfo->keynum * indexHandle->fileHeader.attrLength);
+	index->root->sibling = nullptr;
+	index->root->parent = nullptr;
+
+
+	return SUCCESS;
+}
