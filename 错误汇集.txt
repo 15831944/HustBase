@@ -2,10 +2,10 @@
 1. EditArea.cpp 里面有SYSTABLES.xx SYSCOLUMNS.xx 应该没有后缀xx
 2. TableList.cpp 里面有SYSTABLES 里面应该没有后缀xx
 3. 部分变量没有初始化，编译器没办法通过，建议增加=NULL（或者数值型类型为0）
+4.TableList.cpp 里面系统表查询函数conditions需要增加LAttrLength,condition.LattrLength = ParentNode.GetLength();
 
 
 
 
 /** 实验中的错误  **/
 1. 扫描起始点传入的参数错误，修改扫描起始点
-2.TableList.cpp 里面系统表查询函数conditions需要增加LAttrLength,condition.LattrLength = ParentNode.GetLength();
