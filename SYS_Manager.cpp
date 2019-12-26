@@ -97,7 +97,7 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 {//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
 
-	RC rc = execute(sql, pDoc);
+	RC rc = execute(sql, editArea, pDoc);
 	int row_num = 0;
 	char **messages;
 	switch (rc) {
@@ -126,7 +126,7 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 
 }
 
-RC execute(char * sql, CHustBaseDoc* pDoc) {
+RC execute(char * sql, CEditArea* editArea, CHustBaseDoc* pDoc) {
 	sqlstr *sql_str = NULL;
 	RC rc;
 	sql_str = get_sqlstr();
@@ -136,9 +136,43 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 	{
 		switch (sql_str->flag)
 		{
-		case 1:
+		case 1: {
 			//判断SQL语句为select语句
+			SelResult res;
+			Init_Result(&res);
+			if (rc = Query(sql, &res))
+				return rc;
+			int col_num = res.col_num;
+			int row_num = 0;
+			SelResult *cur_res = &res;
+			while (cur_res) {
+				row_num += cur_res->row_num;
+				cur_res = cur_res->next_res;
+			}
+			char ** fields = new char *[20];
+			for (int i = 0; i < col_num; i++) {
+				fields[i] = new char[20];
+				memset(fields[i], 0, 20);
+				memcpy(fields[i], res.fields[i], 20);
+			}
+			cur_res = &res;
+			char *** rows = new char**[row_num];
+			for (int i = 0; i < row_num; i++) {
+				rows[i] = new char*[col_num];
+				for (int j = 0; j < col_num; j++) {
+					rows[i][j] = new char[20];
+					memset(rows[i][j], 0, 20);
+					memcpy(rows[i][j], cur_res->res[i][j], 20);
+				}
+			}
+			editArea->ShowSelResult(col_num, row_num, fields, rows);
+			for (int i = 0; i < 5; i++) {
+				delete[] fields[i];
+			}
+			delete[] fields;
+			Destory_Result(&res);
 			break;
+		}
 		case 2:
 			//判断SQL语句为insert语句
 			Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
@@ -189,7 +223,6 @@ RC execute(char * sql, CHustBaseDoc* pDoc) {
 			//判断为exit语句，可以由此进行退出操作
 			break;
 		}
-
 		return SUCCESS;
 	}
 	else {
@@ -209,10 +242,8 @@ RC CreateDB(char *dbpath,char *dbname)
 
 	char path_database_name[233];  
 	strcpy(path_database_name, dbpath);
-	// --- NOTICE ---
-	// void CHustBaseApp::OnCreateDB() in HustBase.cpp will get the full path
-	//strcat(path_database_name, "\\");
-	//strcat(path_database_name, dbname);
+	strcat(path_database_name, "\\");
+	strcat(path_database_name, dbname);
 
 	char path_systable_name[233];
 	char path_syscolmn_name[233];
@@ -790,6 +821,7 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	Con *cons = new Con[attr_count];
 	con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
 	
+	memset(open_path, 0, 233);
 	strcpy(open_path, cur_db_pathname);
 	strcat(open_path, "\\");
 	strcat(open_path, relName);
@@ -825,20 +857,19 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 
 	for (int i = 0; i < attr_count; i++) {
 		if (attr_ix_flag[i]) {
-			char full_index_name[255];
-			strcpy(full_index_name, cur_db_pathname);
-			strcat(full_index_name, "\\");
-			strcat(full_index_name, relName);
-			strcat(full_index_name, ".");
-			strcat(full_index_name, attr_idxname[i]);
+			char index_path[255];
+			strcpy(index_path, cur_db_pathname);
+			strcat(index_path, "\\");
+			strcat(index_path, relName);
+			strcat(index_path, ".");
+			strcat(index_path, attr_idxname[i]);
 
-			auto ix_indexHandle = new IX_IndexHandle;
-			OpenIndex(full_index_name, ix_indexHandle);
+			IX_IndexHandle ix_indexHandle;
+			OpenIndex(index_path, &ix_indexHandle);
 			for (int j = 0; j < removed_num; j++) {
-				DeleteEntry(ix_indexHandle, removed_data[j] + attr_offset[i], &removed_rid[j]);
+				DeleteEntry(&ix_indexHandle, removed_data[j] + attr_offset[i], &removed_rid[j]);
 			}
-			CloseIndex(ix_indexHandle);
-			delete ix_indexHandle;
+			CloseIndex(&ix_indexHandle);
 		}
 	}
 
@@ -862,7 +893,142 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	return SUCCESS;
 }
 
-RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions) {
+RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions) 
+{
+	char open_path[233];
+	RC rc;
+
+	// IF THE TABLE EXISTS
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\SYSTABLES");
+	RM_OpenFile(open_path, sys_table_handle);
+
+	Con find_con;
+	find_con.bLhsIsAttr = 1;
+	find_con.bRhsIsAttr = 0;
+	find_con.attrType = chars;
+	find_con.LattrLength = TABLENAME_SIZE;
+	find_con.LattrOffset = 0;
+	find_con.compOp = EQual;
+	find_con.Rvalue = relName;
+
+	RM_FileScan sys_table_scan;
+	OpenScan(&sys_table_scan, sys_table_handle, 1, &find_con);
+	RM_Record sys_table_rec;
+	rc = GetNextRec(&sys_table_scan, &sys_table_rec);
+	if (rc != SUCCESS) {
+		AfxMessageBox("该表不存在");
+		CloseScan(&sys_table_scan);
+		RM_CloseFile(sys_table_handle);
+		return TABLE_NOT_EXIST;
+	}
+
+	int attr_count = 0;
+	memcpy(&attr_count, sys_table_rec.pData + ATTRCOUNT_OFFSET, ATTRCOUNT_SIZE);
+
+	CloseScan(&sys_table_scan);
+	RM_CloseFile(sys_table_handle);
+
+	char **attr_name = new char*[attr_count];
+	int *attr_length = new int[attr_count];
+	int *attr_offset = new int[attr_count];
+	AttrType *attr_type = new AttrType[attr_count];
+	bool *attr_ix_flag = new bool[attr_count];
+	char **attr_idxname = new char*[attr_count];
+
+	for (int i = 0; i < attr_count; i++) {
+		attr_name[i] = new char[ATTRNAME_SIZE];
+		attr_idxname[i] = new char[INDEXNAME_SIZE];
+	}
+
+	GetColsInfo(relName, attr_name, attr_type, attr_length, attr_offset, attr_ix_flag, attr_idxname);
+	Con *cons = new Con[attr_count];
+	con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
+
+	int update_attr = 0;
+	while (strcmp(attr_name[update_attr], attrName)) {
+		update_attr++;
+	}
+	
+	strcpy(open_path, cur_db_pathname);
+	strcat(open_path, "\\");
+	strcat(open_path, relName);
+
+	RM_FileHandle table_handle;
+	RM_OpenFile(open_path, &table_handle);
+	RM_FileScan table_scan;
+	OpenScan(&table_scan, &table_handle, nConditions, cons);
+
+	int total_rec = table_handle.rm_fileSubHeader->nRecords;
+	int data_size = table_handle.rm_fileSubHeader->recordSize - sizeof(bool) - sizeof(RID);
+	int upattr_len = attr_length[update_attr];
+
+	RID *removed_rid = new RID[total_rec];
+	char **removed_data = new char*[total_rec];
+	char **origin_data = new char*[total_rec];
+
+	for (int i = 0; i < total_rec; i++) {
+		removed_data[i] = new char[data_size];
+		origin_data[i] = new char[upattr_len];
+	}
+
+	int removed_num = 0;
+	RM_Record record;
+	while (GetNextRec(&table_scan, &record) == SUCCESS) {
+		removed_rid[removed_num] = record.rid;
+		memcpy(origin_data[removed_num], record.pData + attr_offset[update_attr], upattr_len);
+		memcpy(removed_data[removed_num], record.pData, data_size);
+		memcpy(removed_data[removed_num] + attr_offset[update_attr], value->data, upattr_len);
+		removed_num++;
+	}
+	CloseScan(&table_scan);
+
+	for (int i = 0; i < removed_num; i++) {
+		RM_Record update_rec;
+		update_rec.bValid = true;
+		update_rec.rid = removed_rid[i];
+		update_rec.pData = removed_data[i];
+		UpdateRec(&table_handle, &update_rec);
+	}
+
+	RM_CloseFile(&table_handle);
+
+	if (attr_ix_flag[update_attr]) {
+		char index_path[255];
+		strcpy(index_path, cur_db_pathname);
+		strcat(index_path, "\\");
+		strcat(index_path, relName);
+		strcat(index_path, ".");
+		strcat(index_path, attr_idxname[update_attr]);
+
+		IX_IndexHandle ix_indexHandle;
+		OpenIndex(index_path, &ix_indexHandle);
+		for (int j = 0; j < removed_num; j++) {
+			DeleteEntry(&ix_indexHandle, origin_data[j], &removed_rid[j]);
+			InsertEntry(&ix_indexHandle, removed_data[j] + attr_offset[update_attr], &removed_rid[j]);
+		}
+		CloseIndex(&ix_indexHandle);
+	}
+
+	for (int i = 0; i < total_rec; i++) {
+		delete[] removed_data[i];
+		delete[] origin_data[i];
+	}
+	delete[] removed_rid;
+	delete[] removed_data;
+	delete[] origin_data;
+
+	for (int i = 0; i < attr_count; i++) {
+		delete[] attr_name[i];
+		delete[] attr_idxname[i];
+	}
+	delete[] attr_name;
+	delete[] attr_length;
+	delete[] attr_offset;
+	delete[] attr_type;
+	delete[] attr_ix_flag;
+	delete[] attr_idxname;
+
 	return SUCCESS;
 }
 

@@ -50,7 +50,7 @@ RC DropDB(char *dbname);
 RC OpenDB(char *dbname);
 RC CloseDB();
 
-RC execute(char * sql, CHustBaseDoc *pDoc);
+RC execute(char * sql, CEditArea* editArea, CHustBaseDoc *pDoc);
 
 RC CreateTable(char *relName,int attrCount,AttrInfo *attributes);
 RC DropTable(char *relName);
