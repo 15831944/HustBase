@@ -412,6 +412,9 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 	if (rmFileScan->pRMFileHandle->rm_fileSubHeader->nRecords == 0) {//¼ÇÂ¼ÊýÎª0
 		return RM_EOF;
 	}
+
+	printf("%d\n", rmFileScan->pRMFileHandle->rm_fileSubHeader->nRecords);
+
 	auto rm_fileHandle = rmFileScan->pRMFileHandle;
 	int recordSize = rm_fileHandle->rm_fileSubHeader->recordSize;
 	int dataSize = recordSize - sizeof(RID) - sizeof(bool);
@@ -419,6 +422,7 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 	lastRid.bValid = true;
 	lastRid.pageNum = rmFileScan->pn;
 	lastRid.slotNum = rmFileScan->sn;
+
 	while (GetNextRID(rm_fileHandle, &lastRid, &nextRid)) {
 		auto nextRecord = new RM_Record;
 		GetRec(rm_fileHandle, &nextRid, nextRecord);

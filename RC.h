@@ -68,6 +68,7 @@ typedef enum{
 	TABLE_DELETE_FAILED,		//表删除失败
 
 	DATABASE_FAILED,			//数据库创建或删除失败
+	DATABASE_OPEN_FAILED,
 
 	INSERT_FAILED,				// 插入失败
 	INDEX_ADD_FAILED			// 构建索引项失败
