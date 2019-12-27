@@ -34,7 +34,7 @@ RC GetColsInfo(char *relName, char **attrName, AttrType *attrType, int *attrLeng
 	find_con.Rvalue = relName;
 
 	RM_FileScan colmn_scan;
-	OpenScan(&colmn_scan, sys_table_handle, 1, &find_con);
+	OpenScan(&colmn_scan, sys_colmn_handle, 1, &find_con);
 	RM_Record colmn_rec;
 	for (int i = 0; GetNextRec(&colmn_scan, &colmn_rec) == SUCCESS; i++) {
 		char *cur_colmn = colmn_rec.pData;
