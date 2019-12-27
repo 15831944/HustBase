@@ -156,7 +156,7 @@ void CTableList::displayTabInfo(CString ParentNode)
  	CListCtrl & clc = GetListCtrl();
 // 	CTreeCtrl & ctc = GetDocument()->m_pTreeView->GetTreeCtrl();
  		
- 	LV_COLUMN lv;
+ 	LV_COLUMN & lv = *new LV_COLUMN;
  	lv.mask = LVCF_FMT | LVCF_TEXT | LVCF_WIDTH;
  	lv.fmt = LVCFMT_CENTER;
  	
@@ -189,10 +189,11 @@ void CTableList::displayTabInfo(CString ParentNode)
 		{
 			if(coltype[i][j]==chars)
 			{
-				char temp[21];
+				char *temp = new char[21];
 				memcpy(temp,rec.pData+coloffset[i][j],collength[i][j]);
 				t=temp;				
 				clc.SetItemText(k,j,t);
+				delete[] temp;
 			}
 			else if(coltype[i][j]==ints)
 			{
@@ -214,4 +215,6 @@ void CTableList::displayTabInfo(CString ParentNode)
 	rc=RM_CloseFile(&fileHandle);
 	if(rc!=SUCCESS)
 		AfxMessageBox("关闭数据表文件失败");
+	delete& lv;
+	
 }
