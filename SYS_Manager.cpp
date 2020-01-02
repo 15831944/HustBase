@@ -96,6 +96,84 @@ RC con_from_conditions(int con_num, Condition *conditions, int attr_count, char 
 void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 {//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
+	if (s_sql.find("select") == 0) {
+		SelResult res;
+		SelResult* temp = &res;//用于累加查询结果的行数的遍历指针
+
+		Init_Result(&res);
+		Query(sql, &res);//执行Query查询
+
+		pDoc->selColNum = res.col_num;//这里是查询结果的列数
+		pDoc->selRowNum = 0;//这里是查询结果的行数，注意表头同样需要一行;
+							//在显示最终结果时单独对查询结果做了处理，这里是0还是1？执行时具体更改
+		temp = &res;
+		while (temp)
+		{
+			pDoc->selRowNum += res.row_num;
+			temp = temp->next_res;
+		}
+		//然后按照顺序，将查询结果以字符串的形式拷贝给pDoc->selResult[i][j]，表头信息同样需要拷贝过来。
+		pDoc->isEdit = 1;//构造好查询结果后将该标志位置为1，用于拖动外框时对查询结果进行重绘。
+
+						 //首行表头
+		char** fields = new char* [20];
+		for (int i = 0; i < pDoc->selColNum; i++)
+		{
+			fields[i] = new char[20];
+			memset(fields[i], '\0', 20);//置空
+			memcpy(fields[i], res.fields[i], 20);
+		}
+
+		//查询获得的结果
+		temp = &res;
+		char*** Result = new char** [pDoc->selRowNum];
+		for (int i = 0; i < pDoc->selRowNum; i++)
+		{
+			Result[i] = new char* [pDoc->selColNum];//存放一条记录
+
+			int x;
+			memcpy(&x, &(**temp->res[i]) + 18, sizeof(int));
+			memcpy(&x, &(**temp->res[i]) + 22, sizeof(int));
+
+			for (int j = 0; j < pDoc->selColNum; j++)
+			{
+				Result[i][j] = new char[20];
+				memset(Result[i][j], '\0', 20);
+
+				memcpy(Result[i][j], (**(temp->res + i)) + temp->offset[j], temp->length[j]);
+				if (temp->type[j] == ints) {
+					int x;
+					memcpy(&x, Result[i][j], 4);
+					sprintf(Result[i][j], "%d", x);
+				}
+				else if (temp->type[j] == floats) {
+					float x;
+					memcpy(&x, Result[i][j], 4);
+					sprintf(Result[i][j], "%.3f", x);
+				}
+				//memcpy(Result[i][j], temp->res + temp->offset[j], sizeof(temp->attrType[j]));
+			}//要根据结构中具体字段的类型和偏移量，将具体字段从一条记录中拆分出来
+			if (i == 99)temp = temp->next_res;//一个结构体中最多100条记录
+		}
+
+		//显示
+		editArea->ShowSelResult(pDoc->selColNum, pDoc->selRowNum, fields, Result);
+
+		//释放内存空间
+		for (int i = 0; i < pDoc->selColNum; i++) {
+			delete[] fields[i];
+		}
+		delete[] fields;
+
+		for (int i = 0; i < pDoc->selRowNum; i++) {
+			for (int j = 0; j < pDoc->selColNum; j++)
+				delete[] Result[i][j];
+		}
+		delete[] Result;
+		Destory_Result(&res);
+		return;
+	}
+
 
 	RC rc = execute(sql, editArea, pDoc);
 	int row_num = 0;
@@ -136,7 +214,7 @@ RC execute(char * sql, CEditArea* editArea, CHustBaseDoc* pDoc) {
 	{
 		switch (sql_str->flag)
 		{
-		case 1: {
+		case 1: /*{
 			//判断SQL语句为select语句
 			SelResult res;
 			Init_Result(&res);
@@ -172,7 +250,8 @@ RC execute(char * sql, CEditArea* editArea, CHustBaseDoc* pDoc) {
 			delete[] fields;
 			Destory_Result(&res);
 			break;
-		}
+		}*/
+			break;
 		case 2:
 			//判断SQL语句为insert语句
 			Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
