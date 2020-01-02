@@ -96,7 +96,7 @@ RC con_from_conditions(int con_num, Condition *conditions, int attr_count, char 
 void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 {//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
-	if (s_sql.find("select") == 0) {
+	if (s_sql.find("select") == 0 || s_sql.find("SELECT") == 0) {
 		SelResult res;
 		SelResult* temp = &res;//用于累加查询结果的行数的遍历指针
 

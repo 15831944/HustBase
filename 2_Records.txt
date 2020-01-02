@@ -16,7 +16,7 @@ INSERT into CourseOTeacher VALUES(201, 1000, 110);
 INSERT into CourseOTeacher VALUES(202, 1001, 112);
 INSERT into CourseOTeacher VALUES(203, 1002, 111);
 
-INSERT into CourseOStudent(301, 1000, 0);
+INSERT into CourseOStudent VALUES(301, 1000, 0);
 INSERT into CourseOStudent(302, 1000, 1);
 INSERT into CourseOStudent(303, 1000, 2);
 INSERT into CourseOStudent(304, 1001, 0);
@@ -27,8 +27,8 @@ INSERT into CourseOStudent(306, 1002, 0);
 SELECT * from Student where id = 2;
 SELECT * from Teacher where id <> 110;
 SELECT * from Course  where  id >=1001;
-SELECT Student.name from CourseOStudent, Student where CourseOStudent.studentOid = Student.id AND Couser.id=1001;
-
+SELECT Student.name from CourseOStudent, Student where CourseOStudent.studentOid = Student.id AND CourseOStudent.courseOid=1000;
+SELECT Student.name from Student, CourseOStudent where CourseOStudent.studentOid = Student.id AND CourseOStudent.courseOid=1000;
 
 DELETE from Student where id=2;
 
