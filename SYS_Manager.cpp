@@ -5,15 +5,13 @@
 #include <iostream>
 
 #include "HustBaseDoc.h"
+#include "DBTest.h"
 
 char cur_db_pathname[233];
 
 // for quiery operations
 RM_FileHandle *sys_table_handle = NULL;
 RM_FileHandle *sys_colmn_handle = NULL;
-
-
-RC if_table_exist(char *relName);
 
 RC GetColsInfo(char *relName, char **attrName, AttrType *attrType, int *attrLength, int *attrOffset, bool *ixFlag, char **indexName)
 {
@@ -55,6 +53,7 @@ RC GetColsInfo(char *relName, char **attrName, AttrType *attrType, int *attrLeng
 
 RC con_from_conditions(int con_num, Condition *conditions, int attr_count, char **attr_name, int *attr_length, int *attr_offset, AttrType *attr_types, Con *cons)
 {
+	int is_col_exist;
 	for (int i = 0; i < con_num; i++) {
 		Condition cur_condition = conditions[i];
 
@@ -62,29 +61,38 @@ RC con_from_conditions(int con_num, Condition *conditions, int attr_count, char 
 		cons[i].bRhsIsAttr = cur_condition.bRhsIsAttr;
 		cons[i].compOp = cur_condition.op;
 
+		is_col_exist = 0;
 		if (cur_condition.bLhsIsAttr) {
 			for (int j = 0; j < attr_count; j++) {
 				if (!strcmp(cur_condition.lhsAttr.attrName, attr_name[j])) {
 					cons[i].attrType = attr_types[j];
 					cons[i].LattrLength = attr_length[j];
 					cons[i].LattrOffset = attr_offset[j];
+					is_col_exist = 1;
 					break;
 				}
 			}
-		} else {
+			if (!is_col_exist) return TABLE_COLUMN_ERROR;
+		}
+		else {
 			//cons[i].attrType = cur_condition.lhsValue.type;
 			cons[i].Lvalue = cur_condition.lhsValue.data;
 		}
 
+		is_col_exist = 0;
 		if (cur_condition.bRhsIsAttr) {
 			for (int j = 0; j < attr_count; j++) {
 				if (!strcmp(cur_condition.rhsAttr.attrName, attr_name[j])) {
 					cons[i].attrType = attr_types[j];
 					cons[i].RattrLength = attr_length[j];
 					cons[i].RattrOffset = attr_offset[j];
+					is_col_exist = 1;
+					break;
 				}
 			}
-		} else {
+			if (!is_col_exist) return TABLE_COLUMN_ERROR;
+		}
+		else {
 			//cons[i].attrType = cur_condition.rhsValue.type;
 			cons[i].Rvalue = cur_condition.rhsValue.data;
 		}
@@ -93,49 +101,48 @@ RC con_from_conditions(int con_num, Condition *conditions, int attr_count, char 
 	return SUCCESS;
 }
 
-void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
-{//根据执行的语句类型在界面上显示执行结果。此函数需修改
+//根据执行的语句类型在界面上显示执行结果。此函数需修改
+void ExecuteAndMessage(char *sql, CEditArea* editArea)
+{
 	std::string s_sql = sql;
 	if (s_sql.find("select") == 0 || s_sql.find("SELECT") == 0) {
 		SelResult res;
 		SelResult* temp = &res;//用于累加查询结果的行数的遍历指针
 
 		Init_Result(&res);
-		Query(sql, &res);//执行Query查询
+		Query(sql, &res);
 
-		pDoc->selColNum = res.col_num;//这里是查询结果的列数
-		pDoc->selRowNum = 0;//这里是查询结果的行数，注意表头同样需要一行;
-							//在显示最终结果时单独对查询结果做了处理，这里是0还是1？执行时具体更改
+		int col_num = res.col_num;
+		int row_num = 0;
+
 		temp = &res;
 		while (temp)
 		{
-			pDoc->selRowNum += res.row_num;
+			row_num += res.row_num;
 			temp = temp->next_res;
 		}
-		//然后按照顺序，将查询结果以字符串的形式拷贝给pDoc->selResult[i][j]，表头信息同样需要拷贝过来。
-		pDoc->isEdit = 1;//构造好查询结果后将该标志位置为1，用于拖动外框时对查询结果进行重绘。
+		//pDoc->isEdit = 1;
 
-						 //首行表头
-		char** fields = new char* [20];
-		for (int i = 0; i < pDoc->selColNum; i++)
+		char** fields = new char*[20];
+		for (int i = 0; i < col_num; i++)
 		{
 			fields[i] = new char[20];
-			memset(fields[i], '\0', 20);//置空
+			memset(fields[i], '\0', 20);
 			memcpy(fields[i], res.fields[i], 20);
 		}
 
 		//查询获得的结果
 		temp = &res;
-		char*** Result = new char** [pDoc->selRowNum];
-		for (int i = 0; i < pDoc->selRowNum; i++)
+		char*** Result = new char**[row_num];
+		for (int i = 0; i < row_num; i++)
 		{
-			Result[i] = new char* [pDoc->selColNum];//存放一条记录
+			Result[i] = new char*[col_num];//存放一条记录
 
 			int x;
 			memcpy(&x, &(**temp->res[i]) + 18, sizeof(int));
 			memcpy(&x, &(**temp->res[i]) + 22, sizeof(int));
 
-			for (int j = 0; j < pDoc->selColNum; j++)
+			for (int j = 0; j < col_num; j++)
 			{
 				Result[i][j] = new char[20];
 				memset(Result[i][j], '\0', 20);
@@ -151,22 +158,21 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 					memcpy(&x, Result[i][j], 4);
 					sprintf(Result[i][j], "%.3f", x);
 				}
-				//memcpy(Result[i][j], temp->res + temp->offset[j], sizeof(temp->attrType[j]));
-			}//要根据结构中具体字段的类型和偏移量，将具体字段从一条记录中拆分出来
+			}
 			if (i == 99)temp = temp->next_res;//一个结构体中最多100条记录
 		}
 
 		//显示
-		editArea->ShowSelResult(pDoc->selColNum, pDoc->selRowNum, fields, Result);
+		editArea->ShowSelResult(col_num, row_num, fields, Result);
 
 		//释放内存空间
-		for (int i = 0; i < pDoc->selColNum; i++) {
+		for (int i = 0; i < col_num; i++) {
 			delete[] fields[i];
 		}
 		delete[] fields;
 
-		for (int i = 0; i < pDoc->selRowNum; i++) {
-			for (int j = 0; j < pDoc->selColNum; j++)
+		for (int i = 0; i < row_num; i++) {
+			for (int j = 0; j < col_num; j++)
 				delete[] Result[i][j];
 		}
 		delete[] Result;
@@ -175,7 +181,7 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 	}
 
 
-	RC rc = execute(sql, editArea, pDoc);
+	RC rc = execute(sql, editArea);
 	int row_num = 0;
 	char **messages;
 	switch (rc) {
@@ -204,7 +210,7 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 
 }
 
-RC execute(char * sql, CEditArea* editArea, CHustBaseDoc* pDoc) {
+RC execute(char * sql, CEditArea* editArea) {
 	sqlstr *sql_str = NULL;
 	RC rc;
 	sql_str = get_sqlstr();
@@ -254,45 +260,40 @@ RC execute(char * sql, CEditArea* editArea, CHustBaseDoc* pDoc) {
 			break;
 		case 2:
 			//判断SQL语句为insert语句
-			Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
-			pDoc->m_pTreeView->PopulateTree();
-			break;
+			rc = Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
+			return rc;
 		case 3:
 			//判断SQL语句为update语句
 		{
 			updates up = sql_str->sstr.upd;
-			Update(up.relName, up.attrName, &up.value, up.nConditions, up.conditions);
-			break;
+			rc = Update(up.relName, up.attrName, &up.value, up.nConditions, up.conditions);
+			return rc;
 		}
 
 		case 4:
 			//判断SQL语句为delete语句
-			Delete(sql_str->sstr.del.relName, sql_str->sstr.del.nConditions, sql_str->sstr.del.conditions);
-			break;
+			rc = Delete(sql_str->sstr.del.relName, sql_str->sstr.del.nConditions, sql_str->sstr.del.conditions);
+			return rc;
 
 		case 5:
 			//判断SQL语句为createTable语句
-			CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
-			pDoc->m_pTreeView->PopulateTree(); //更新视图
-			pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
-			break;
+			rc = CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
+			return rc;
 
 		case 6:
 			//判断SQL语句为dropTable语句
-			DropTable(sql_str->sstr.cret.relName);
-			pDoc->m_pTreeView->PopulateTree(); //更新视图
-			pDoc->m_pListView->displayTabInfo(sql_str->sstr.cret.relName);//右侧刷新表名
-			break;
+			rc = DropTable(sql_str->sstr.cret.relName);
+			return rc;
 
 		case 7:
 			//判断SQL语句为createIndex语句
-			CreateIndex(sql_str->sstr.crei.indexName, sql_str->sstr.crei.relName, sql_str->sstr.crei.attrName);
-			break;
+			rc = CreateIndex(sql_str->sstr.crei.indexName, sql_str->sstr.crei.relName, sql_str->sstr.crei.attrName);
+			return rc;
 
 		case 8:
 			//判断SQL语句为dropIndex语句
-			DropIndex(sql_str->sstr.crei.indexName);
-			break;
+			rc = DropIndex(sql_str->sstr.crei.indexName);
+			return rc;
 
 		case 9:
 			//判断为help语句，可以给出帮助提示
@@ -315,11 +316,11 @@ RC execute(char * sql, CEditArea* editArea, CHustBaseDoc* pDoc) {
 // | - SysColumn
 
 // void CHustBaseApp::OnCreateDB() in HustBase.cpp already created a directory!
-RC CreateDB(char *dbpath,char *dbname)
+RC CreateDB(char *dbpath, char *dbname)
 {
 	printf("CreateDB called!\n");
 
-	char path_database_name[233];  
+	char path_database_name[233];
 	strcpy(path_database_name, dbpath);
 	strcat(path_database_name, "\\");
 	strcat(path_database_name, dbname);
@@ -333,11 +334,14 @@ RC CreateDB(char *dbpath,char *dbname)
 	strcpy(path_syscolmn_name, path_database_name);
 	strcat(path_syscolmn_name, "\\SYSCOLUMNS");
 
+	CreateDirectory(path_database_name, NULL);
+	SetCurrentDirectory(path_database_name);
+
 	RC rc_table = RM_CreateFile(path_systable_name, SYS_TABLE_ROW_SIZE);
 	RC rc_colmn = RM_CreateFile(path_syscolmn_name, SYS_COLMN_ROW_SIZE);
 	if ((rc_table != SUCCESS) | (rc_colmn != SUCCESS)) {
-		AfxMessageBox("创建数据库系统表失败！");
-		return DATABASE_FAILED;
+		//AfxMessageBox("创建数据库系统表失败！");
+		return FAIL;
 	}
 
 	printf("CreateDB successed!\n");
@@ -372,18 +376,28 @@ RC CloseDB()
 	return SUCCESS;
 }
 
-RC CreateTable(char *relName, int attrCount, AttrInfo *attributes) 
+RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 {
 	char open_path[233];
 	RC rc;
-	
+
+	if (strlen(relName) >= TABLENAME_SIZE)
+		return TABLE_NAME_ILLEGAL;
+
+	for (int i = 0; i < attrCount; i++) {
+		for (int j = i + 1; j < attrCount; j++) {
+			if (!strcmp(attributes[i].attrName, attributes[j].attrName))
+				return TABLE_COLUMN_ERROR;
+		}
+	}
+
 	/* for SYSTABLES */
 
 	// open systables
 	strcpy(open_path, cur_db_pathname);
 	strcat(open_path, "\\SYSTABLES");
 	RM_OpenFile(open_path, sys_table_handle);
-	
+
 	// if the table already existed
 	Con find_con;
 	find_con.bLhsIsAttr = 1;
@@ -401,7 +415,7 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
 	if (rc == SUCCESS) {
-		AfxMessageBox("该表已经存在");
+		//AfxMessageBox("该表已经存在");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_EXIST;
@@ -449,14 +463,14 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	strcat(new_table_path, relName);
 	rc = RM_CreateFile(new_table_path, attr_total_offset);
 	if (rc != SUCCESS) {
-		AfxMessageBox("表创建失败！");
+		//AfxMessageBox("表创建失败！");
 		return TABLE_CREATE_FAILED;
 	}
 
 	return SUCCESS;
 }
 
-RC DropTable(char *relName) 
+RC DropTable(char *relName)
 {
 	char open_path[233];
 	RC rc;
@@ -484,7 +498,7 @@ RC DropTable(char *relName)
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
 	if (rc != SUCCESS) {
-		AfxMessageBox("该表不存在！");
+		//AfxMessageBox("该表不存在！");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_NOT_EXIST;
@@ -530,7 +544,7 @@ RC DropTable(char *relName)
 	return SUCCESS;
 }
 
-RC CreateIndex(char *indexName, char *relName, char *attrName) 
+RC CreateIndex(char *indexName, char *relName, char *attrName)
 {
 	char open_path[233];
 	RC rc;
@@ -565,7 +579,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	RM_Record colmn_rec;
 	rc = GetNextRec(&colmn_scan, &colmn_rec);
 	if (rc != SUCCESS) {
-		AfxMessageBox("不存在该表的该属性！");
+		//AfxMessageBox("不存在该表的该属性！");
 		CloseScan(&colmn_scan);
 		RM_CloseFile(sys_colmn_handle);
 		return FLIED_NOT_EXIST;
@@ -584,7 +598,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	OpenScan(&colmn_scan, sys_colmn_handle, 1, colmn_cons);
 	rc = GetNextRec(&colmn_scan, &colmn_rec);
 	if (rc == SUCCESS) {
-		AfxMessageBox("该索引名已被使用");
+		//AfxMessageBox("该索引名已被使用");
 		CloseScan(&colmn_scan);
 		RM_CloseFile(sys_colmn_handle);
 		return INDEX_NAME_REPEAT;
@@ -594,7 +608,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	// if there is no index on this column
 	char *cur_colmn = colmn_rec.pData;
 	if (*(cur_colmn + IX_FLAG_OFFSET) == '1') {
-		AfxMessageBox("该属性已经建立过索引！");
+		//AfxMessageBox("该属性已经建立过索引！");
 		RM_CloseFile(sys_colmn_handle);
 		return INDEX_EXIST;
 	}
@@ -625,7 +639,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 
 	rc = CreateIndex(index_path, attrType, attrLength);
 	if (rc != SUCCESS) {
-		AfxMessageBox("索引创建失败！");
+		//AfxMessageBox("索引创建失败！");
 		return INDEX_CREATE_FAILED;
 	}
 
@@ -664,7 +678,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	return SUCCESS;
 }
 
-RC DropIndex(char *indexName) 
+RC DropIndex(char *indexName)
 {
 	char open_path[233];
 	RC rc;
@@ -689,7 +703,7 @@ RC DropIndex(char *indexName)
 	RM_Record colmn_rec;
 	rc = GetNextRec(&colmn_scan, &colmn_rec);
 	if (rc != SUCCESS) {
-		AfxMessageBox("该索引名不存在！");
+		//AfxMessageBox("该索引名不存在！");
 		CloseScan(&colmn_scan);
 		RM_CloseFile(sys_colmn_handle);
 		return INDEX_NOT_EXIST;
@@ -721,7 +735,7 @@ RC DropIndex(char *indexName)
 	return SUCCESS;
 }
 
-RC Insert(char *relName, int nValues, Value * values) 
+RC Insert(char *relName, int nValues, Value * values)
 {
 	char open_path[233];
 	RC rc;
@@ -745,7 +759,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	RM_Record table_rec;
 	rc = GetNextRec(&table_scan, &table_rec);
 	if (rc != SUCCESS) {
-		AfxMessageBox("该表不存在");
+		//AfxMessageBox("该表不存在");
 		CloseScan(&table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_NOT_EXIST;
@@ -754,11 +768,11 @@ RC Insert(char *relName, int nValues, Value * values)
 	int attr_count = 0;
 	memcpy(&attr_count, table_rec.pData + ATTRCOUNT_OFFSET, ATTRCOUNT_SIZE);
 	if (nValues < attr_count) {
-		AfxMessageBox("插入的字段不足！");
+		//AfxMessageBox("插入的字段不足！");
 		return FIELD_MISSING;
 	}
 	if (nValues > attr_count) {
-		AfxMessageBox("插入的字段太多！");
+		//AfxMessageBox("插入的字段太多！");
 		return FIELD_REDUNDAN;
 	}
 
@@ -774,8 +788,8 @@ RC Insert(char *relName, int nValues, Value * values)
 
 	int *attr_len = new int[attr_count];
 	bool *is_idx = new bool[attr_count];
-	char (*idx_name)[233] = new char[attr_count][233];
-	
+	char(*idx_name)[233] = new char[attr_count][233];
+
 	RM_FileScan colmn_scan;
 	OpenScan(&colmn_scan, sys_colmn_handle, 1, &find_con);
 	RM_Record colmn_rec;
@@ -785,7 +799,7 @@ RC Insert(char *relName, int nValues, Value * values)
 		memcpy(&attr_type, cur_colmn + ATTRTYPE_OFFSET, ATTRTYPE_SIZE);
 		// 检查属性是否相符
 		if (attr_type != values[attr_count - 1 - i].type) {
-			AfxMessageBox("插入的字段类型有误！");
+			//AfxMessageBox("插入的字段类型有误！");
 			CloseScan(&colmn_scan);
 			RM_CloseFile(sys_colmn_handle);
 			return FIELD_TYPE_MISMATCH;
@@ -814,7 +828,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	RID value_rid;
 	rc = InsertRec(&table_handle, insert_value, &value_rid);
 	if (rc != SUCCESS) {
-		AfxMessageBox("插入失败！");
+		//AfxMessageBox("插入失败！");
 		RM_CloseFile(&table_handle);
 		return INSERT_FAILED;
 	}
@@ -833,7 +847,7 @@ RC Insert(char *relName, int nValues, Value * values)
 			OpenIndex(idx_path, &insert_idx_handle);
 			rc = InsertEntry(&insert_idx_handle, (char *)values[i].data, &value_rid);
 			if (rc != SUCCESS) {
-				AfxMessageBox("构建索引项失败");
+				//AfxMessageBox("构建索引项失败");
 				return INDEX_ADD_FAILED;
 			}
 			CloseIndex(&insert_idx_handle);
@@ -847,7 +861,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	return SUCCESS;
 }
 
-RC Delete(char *relName, int nConditions, Condition *conditions) 
+RC Delete(char *relName, int nConditions, Condition *conditions)
 {
 	char open_path[233];
 	RC rc;
@@ -871,7 +885,7 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	RM_Record sys_table_rec;
 	rc = GetNextRec(&sys_table_scan, &sys_table_rec);
 	if (rc != SUCCESS) {
-		AfxMessageBox("该表不存在");
+		//AfxMessageBox("该表不存在");
 		CloseScan(&sys_table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_NOT_EXIST;
@@ -882,9 +896,9 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 
 	CloseScan(&sys_table_scan);
 	RM_CloseFile(sys_table_handle);
-	
 
-	char **attr_name = new char* [attr_count];
+
+	char **attr_name = new char*[attr_count];
 	int *attr_length = new int[attr_count];
 	int *attr_offset = new int[attr_count];
 	AttrType *attr_type = new AttrType[attr_count];
@@ -898,8 +912,10 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 
 	GetColsInfo(relName, attr_name, attr_type, attr_length, attr_offset, attr_ix_flag, attr_idxname);
 	Con *cons = new Con[attr_count];
-	con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
-	
+	rc = con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
+	if (rc != SUCCESS)
+		return rc;
+
 	memset(open_path, 0, 233);
 	strcpy(open_path, cur_db_pathname);
 	strcat(open_path, "\\");
@@ -913,10 +929,10 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	int total_rec = table_handle.rm_fileSubHeader->nRecords;
 	int data_size = table_handle.rm_fileSubHeader->recordSize - sizeof(bool) - sizeof(RID);
 
-	RID *removed_rid = new RID [total_rec];
-	char **removed_data = new char* [total_rec];
+	RID *removed_rid = new RID[total_rec];
+	char **removed_data = new char*[total_rec];
 	for (int i = 0; i < total_rec; i++) {
-		removed_data[i] = new char [data_size];
+		removed_data[i] = new char[data_size];
 	}
 
 	int removed_num = 0;
@@ -972,7 +988,7 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	return SUCCESS;
 }
 
-RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions) 
+RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions)
 {
 	char open_path[233];
 	RC rc;
@@ -996,7 +1012,7 @@ RC Update(char *relName, char *attrName, Value *value, int nConditions, Conditio
 	RM_Record sys_table_rec;
 	rc = GetNextRec(&sys_table_scan, &sys_table_rec);
 	if (rc != SUCCESS) {
-		AfxMessageBox("该表不存在");
+		//AfxMessageBox("该表不存在");
 		CloseScan(&sys_table_scan);
 		RM_CloseFile(sys_table_handle);
 		return TABLE_NOT_EXIST;
@@ -1022,13 +1038,15 @@ RC Update(char *relName, char *attrName, Value *value, int nConditions, Conditio
 
 	GetColsInfo(relName, attr_name, attr_type, attr_length, attr_offset, attr_ix_flag, attr_idxname);
 	Con *cons = new Con[attr_count];
-	con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
+	rc = con_from_conditions(nConditions, conditions, attr_count, attr_name, attr_length, attr_offset, attr_type, cons);
+	if (rc != SUCCESS)
+		return rc;
 
 	int update_attr = 0;
 	while (strcmp(attr_name[update_attr], attrName)) {
 		update_attr++;
 	}
-	
+
 	strcpy(open_path, cur_db_pathname);
 	strcat(open_path, "\\");
 	strcat(open_path, relName);
@@ -1120,35 +1138,3 @@ bool CanButtonClick()
 	//如果当前没有数据库打开
 	return false;
 }
-
-RC if_table_exist(char *relName)
-{
-	char open_path[233];
-	RC rc;
-
-	// open systables
-	strcpy(open_path, cur_db_pathname);
-	strcat(open_path, "\\SYSTABLES");
-	RM_OpenFile(open_path, sys_table_handle);
-
-	// if the table already existed
-	Con find_con;
-	find_con.bLhsIsAttr = 1;
-	find_con.bRhsIsAttr = 0;
-	find_con.attrType = chars;
-	find_con.LattrLength = TABLENAME_SIZE;
-	find_con.LattrOffset = 0;
-	find_con.compOp = EQual;
-	find_con.Rvalue = relName;
-
-	printf("create table name: %s\n", relName);
-
-	RM_FileScan table_scan;
-	OpenScan(&table_scan, sys_table_handle, 1, &find_con);
-	RM_Record table_rec;
-	rc = GetNextRec(&table_scan, &table_rec);
-
-	return rc;
-}
-
-

@@ -129,7 +129,7 @@ void CEditArea::OnRunBtn()
 
 	
 	pDoc->isEdit = false;
-	ExecuteAndMessage(str, this, pDoc);//可以对此函数进行修改来设置页面展示的信息
+	ExecuteAndMessage(str, this);//可以对此函数进行修改来设置页面展示的信息
 	
 }
 

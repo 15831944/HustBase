@@ -1,36 +1,30 @@
 /*******************************  CREATE TABLE  *******************************/
-CREATE TABLE Student(id int, name char(20), old int, height float, weight float);
-
-CREATE TABLE Course(id int, courseOname char(50));
-
-CREATE TABLE Teacher(id int, gender int, name char(20));
-
-CREATE TABLE CourseOTeacher(id int, courseOid int, teacherOid int);
-
-CREATE TABLE CourseOStudent(id int, courseOid int, studentOid);
-
-/*******************************  DROP TABLE  *********************************/
-DROP TABLE Student;
-
-DROP TABLE Course;
-
-DROP TABLE Teacher;
-
-DROP TABLE CourseOTreacher;
-
-DROP TABLE CourseOStudent;
-
-/********************************  CREATE INDEX  ******************************/
-CREATE INDEX studentOidOidx ON Student(id);
-
-CREATE INDEX studentOoldOidx ON Student(old);
-
-CREATE INDEX courseOcourseOnameOidx ON Course(courseOname);
-
-CREATE INDEX teacherOidOidx ON Teacher(id);
+CREATE TABLE Course(crsid int, crsname char(20));
+CREATE TABLE Teacher(tchid int, gender int, name char(20));
+CREATE TABLE Student(stuid int, name char(20), old int, height float, weight float);
+CREATE TABLE CourseOStudent(cosid int, crspid int, stupid int);
 
 
+INSERT into Course VALUES(1000, "Calculous");
+INSERT into Course VALUES(1001, "Linear Algebra");
 
+INSERT into Teacher VALUES(110, 1, "Yong Hu");
+INSERT into Teacher VALUES(111, 0, "Yin Yang");
+
+INSERT into Student VALUES(0, "Xiaoming", 19, 171.3, 125.6);
+INSERT into Student VALUES(1, "Meimei", 20, 168.5, 103.8);
+
+INSERT into CourseOStudent VALUES(301, 1000, 0);
+
+SELECT * from Student where stuid = 1;
+SELECT * from Teacher where tchid <> 110;
+SELECT * from Course  where  crsid >=1001;
+SELECT Student.name from CourseOStudent, Student where CourseOStudent.stupid = Student.stuid and CourseOStudent.crspid=1000;
+
+
+DELETE from Student where stuid=1;
+
+UPDATE Teacher SET gender=0 WHERE tchid=110;
 
 
 

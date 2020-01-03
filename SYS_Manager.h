@@ -42,7 +42,7 @@ typedef struct {
 	char indexname[21];//索引名称
 }SysColumns;//系统列文件
 
-void ExecuteAndMessage(char *, CEditArea*, CHustBaseDoc*);
+void ExecuteAndMessage(char *, CEditArea*);
 bool CanButtonClick();
 
 RC CreateDB(char *dbpath,char *dbname);
@@ -50,7 +50,7 @@ RC DropDB(char *dbname);
 RC OpenDB(char *dbname);
 RC CloseDB();
 
-RC execute(char * sql, CEditArea* editArea, CHustBaseDoc *pDoc);
+RC execute(char * sql, CEditArea* editArea);
 
 RC CreateTable(char *relName,int attrCount,AttrInfo *attributes);
 RC DropTable(char *relName);
