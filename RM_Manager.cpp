@@ -381,6 +381,7 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 			}
 		}
 		rmFileScan->sn = -1;
+		delete pageHandle;
 	}
 	return SUCCESS;
 }
@@ -438,8 +439,8 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 		else {
 			lastRid = nextRid;
 		}
+		delete nextRecord;
 	}
-
 	return RM_EOF;
 }
 
