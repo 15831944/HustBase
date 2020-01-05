@@ -65,13 +65,12 @@ RC IX_GetNextEntry(IX_IndexScan* indexScan, RID* rid);
 RC CloseIndexScan(IX_IndexScan* indexScan);
 
 //将给定的关键字和指针写到指定的页面
-void insertKeyAndRidToPage(PF_PageHandle* pageHandle, int order, AttrType attrType, int attrLength, void* pData, RID* rid, bool insertIfTrue);
+void InsertKeyRid2Page(PF_PageHandle* pageHandle, int order, AttrType attrType, int attrLength, void* pData, RID* rid, bool insertIfTrue);
 //设置新页面节点控制信息
-void copyNewNodeInfoToPage(PF_PageHandle* pageHandle, PageNum brother, PageNum parent, int is_leaf, int keynum);
+void CopyNodeData2Page(PF_PageHandle* pageHandle, PageNum brother, PageNum parent, int is_leaf, int keynum);
 //复制分裂后的关键字和指针到新页面
-void  copyKeysAndRIDsToPage(PF_PageHandle* pageHandle, void* keySrc, int attrLength, int num, int order, void* ridSrc);
-//设置新页面节点控制信息
-void copyNewNodeInfoToPage(PF_PageHandle* pageHandle, PageNum brother, PageNum parent, int is_leaf, int keynum);
+void  CopyKeyRID2Page(PF_PageHandle* pageHandle, void* keySrc, int attrLength, int num, int order, void* ridSrc);
+
 //删除前查找节点中的关键字
 void findKeyAndRidForDelete(PF_PageHandle* pageHandle, int order, AttrType attrType, int attrLength, void* pData, RID* rid, bool* existence);
 //RID的比较
@@ -80,9 +79,9 @@ bool compareRid(RID* src, RID* des);
 void getFromBrother(PF_PageHandle* pageHandle, PF_FileHandle* fileHandle, int order, AttrType attrType, int attrLength, int* status);
 //简单地从某个父节点页面中删除某个分支或者修改关键字
 void deleteChildNode(PF_PageHandle* parentPageHandle, PF_FileHandle* fileHandle, int order, AttrType attrType, int attrLength, PageNum nodePageNum, bool deleteIfTrue, void* pData);
-void theFirstEqualScan(IX_IndexHandle* indexHandle, void* pData, PageNum* startPage, int* ridIx, bool* existence);     //找到第一个关键字相等所在的页面startPage和位置ridIx
+void FstEquScan(IX_IndexHandle* indexHandle, void* pData, PageNum* startPage, int* ridIx, bool* existence);     //找到第一个关键字相等所在的页面startPage和位置ridIx
 																													   //大于扫描
-void theLEqualScan(IX_IndexHandle* indexHandle, void* pData, PageNum* startPage, int* ridIx);    //找到第一个关键字大于所在的页面startPage和位置ridIx
+void LEquScan(IX_IndexHandle* indexHandle, void* pData, PageNum* startPage, int* ridIx);    //找到第一个关键字大于所在的页面startPage和位置ridIx
 																								 //关键字的比较
 int keyCompare(void* data1, void* data2, AttrType attrType);
 //找出当前节点的左兄弟节点
